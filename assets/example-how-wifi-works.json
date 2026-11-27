@@ -1,0 +1,421 @@
+{
+  "meta": {
+    "slug": "how-wifi-works",
+    "title": "How Wi-Fi Loads a Web Page",
+    "description": "A visual, step-by-step lesson on how a web page travels from a distant server through radio waves onto your laptop screen.",
+    "eyebrow": "Visual lesson · Everyday networking",
+    "researched": "2025-05-01",
+    "readingTime": "6 min",
+    "footer": "Wi-Fi standards and frequency details checked as of May 2025."
+  },
+  "hero": {
+    "headline": "How does Wi-Fi get a web page to your laptop?",
+    "lede": "You type a name, invisible waves cross your room, and a full page appears. Here is the four-part relay that makes it happen in a blink.",
+    "chips": [
+      {
+        "label": "DNS lookup",
+        "hue": "violet"
+      },
+      {
+        "label": "Wi-Fi radio",
+        "hue": "teal"
+      },
+      {
+        "label": "Packets & TCP",
+        "hue": "amber"
+      },
+      {
+        "label": "Router & ISP",
+        "hue": "sage"
+      }
+    ]
+  },
+  "sections": [
+    {
+      "type": "tldr",
+      "nav": "TL;DR",
+      "eyebrow": "30-second version",
+      "title": "The whole trip in 3 bullets",
+      "bullets": [
+        "**DNS finds the address.** Before anything loads, your laptop translates a website name into a numeric IP (Internet Protocol) address.",
+        "**Wi-Fi only crosses your room.** Radio waves carry tiny numbered packets between your laptop and your home router.",
+        "**Your router hands off to the internet.** From there, cables and fiber carry the request to the web server and bring the page back in pieces."
+      ]
+    },
+    {
+      "type": "analogy",
+      "nav": "Analogy",
+      "eyebrow": "Master analogy",
+      "title": "Think of a neighborhood post office with radio couriers",
+      "premise": "Imagine ordering a booklet from a distant library. You check an address book, send a local courier to your neighborhood post office, and the post office mails numbered envelopes back and forth.",
+      "roles": [
+        {
+          "concept": "DNS",
+          "role": "The address book",
+          "why": "Turns a friendly name like `example.com` into a numeric street address.",
+          "hue": "violet"
+        },
+        {
+          "concept": "Wi-Fi radio",
+          "role": "The local bike courier",
+          "why": "Carries envelopes across your house between your desk and your front door.",
+          "hue": "teal"
+        },
+        {
+          "concept": "Packets & TCP",
+          "role": "Numbered envelopes",
+          "why": "Splits big pages into small pieces (`1 of 4`, `2 of 4`) and requests replacements if one drops.",
+          "hue": "amber"
+        },
+        {
+          "concept": "Router & ISP",
+          "role": "The neighborhood post office",
+          "why": "Connects your home to the wider highway of cables and remembers which laptop ordered what.",
+          "hue": "sage"
+        }
+      ],
+      "limits": "Real packets travel over radio and fiber near the speed of light, and different envelopes from the same page can take different highway routes."
+    },
+    {
+      "type": "concept",
+      "nav": "DNS",
+      "eyebrow": "Concept 1 · DNS",
+      "title": "DNS turns a website name into numbers",
+      "hue": "violet",
+      "analogy": "Like looking up a friend's street address in your address book before mailing a letter.",
+      "body": [
+        "Internet routers do not understand names like `example.com`. They route traffic using numeric IP (Internet Protocol) addresses such as `93.184.216.34`.",
+        "When you press Enter, your laptop asks a DNS (Domain Name System) resolver for that number. The answer comes back in milliseconds."
+      ],
+      "takeaway": "You type a name; DNS hands back the numeric IP address.",
+      "deeper": {
+        "summary": "Go deeper: why repeat visits feel faster",
+        "body": [
+          "Your laptop saves recent DNS answers in a short-term memory called a cache.",
+          "Each answer carries a TTL (Time to Live) timer. While the timer is active, your browser skips the lookup and reuses the saved number."
+        ]
+      }
+    },
+    {
+      "type": "check",
+      "prompt": "You type `weather.gov` into your browser. Why does your laptop contact DNS first?",
+      "options": [
+        "To boost the strength of your Wi-Fi radio signal",
+        "To translate `weather.gov` into a numeric IP address",
+        "To compress the images on the page"
+      ],
+      "answer": 1,
+      "explain": "Routers forward traffic by IP address, so DNS must turn the domain name into a number before your request can travel."
+    },
+    {
+      "type": "concept",
+      "nav": "Packets",
+      "eyebrow": "Concept 2 · Packets & TCP",
+      "title": "Pages travel as small numbered packets",
+      "hue": "amber",
+      "analogy": "Like tearing a long booklet into numbered pages and mailing each page in its own envelope.",
+      "body": [
+        "Sending a whole web page as one giant block would jam shared networks. Instead, TCP (Transmission Control Protocol) slices data into tiny packets of around 1,500 bytes.",
+        "Each packet carries a sequence number and a destination address. Your laptop reassembles them in order and asks for a resend if one goes missing."
+      ],
+      "diagram": {
+        "svg": "<svg viewBox=\"0 0 560 116\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"8\" y=\"20\" width=\"120\" height=\"76\" rx=\"10\" fill=\"var(--surface)\" stroke=\"var(--line)\" stroke-width=\"1.5\"/><text x=\"68\" y=\"54\" text-anchor=\"middle\" fill=\"var(--ink)\" font-size=\"13\" font-weight=\"600\">Web page</text><text x=\"68\" y=\"74\" text-anchor=\"middle\" fill=\"var(--muted)\" font-size=\"11\">HTML + text</text><path d=\"M134 58 L174 58\" stroke=\"var(--c)\" stroke-width=\"2\"/><polygon points=\"174,53 184,58 174,63\" fill=\"var(--c)\"/><rect x=\"192\" y=\"24\" width=\"104\" height=\"68\" rx=\"9\" fill=\"var(--soft)\" stroke=\"var(--c)\" stroke-width=\"1.5\"/><text x=\"244\" y=\"52\" text-anchor=\"middle\" fill=\"var(--ink)\" font-size=\"12\" font-weight=\"600\">Packet 1 / 3</text><text x=\"244\" y=\"70\" text-anchor=\"middle\" fill=\"var(--muted)\" font-size=\"10\">Header + start</text><rect x=\"312\" y=\"24\" width=\"104\" height=\"68\" rx=\"9\" fill=\"var(--soft)\" stroke=\"var(--c)\" stroke-width=\"1.5\"/><text x=\"364\" y=\"52\" text-anchor=\"middle\" fill=\"var(--ink)\" font-size=\"12\" font-weight=\"600\">Packet 2 / 3</text><text x=\"364\" y=\"70\" text-anchor=\"middle\" fill=\"var(--muted)\" font-size=\"10\">Middle text</text><rect x=\"432\" y=\"24\" width=\"116\" height=\"68\" rx=\"9\" fill=\"var(--soft)\" stroke=\"var(--c)\" stroke-width=\"1.5\"/><text x=\"490\" y=\"52\" text-anchor=\"middle\" fill=\"var(--ink)\" font-size=\"12\" font-weight=\"600\">Packet 3 / 3</text><text x=\"490\" y=\"70\" text-anchor=\"middle\" fill=\"var(--muted)\" font-size=\"10\">End + check</text></svg>",
+        "caption": "TCP slices one web page into small numbered packets so each piece can be checked and resent independently.",
+        "alt": "Diagram showing a Web page box with an arrow pointing to three smaller boxes labeled Packet 1/3, Packet 2/3, and Packet 3/3."
+      },
+      "takeaway": "Small numbered packets make networks fair and resilient to interference."
+    },
+    {
+      "type": "diagram",
+      "nav": "Full trip",
+      "eyebrow": "Visual map",
+      "title": "The full round trip of one page load",
+      "hue": "teal",
+      "mermaid": "sequenceDiagram\n  participant L as Laptop\n  participant R as Home Router\n  participant I as ISP & Internet\n  participant S as Web Server\n  L->>R: 1. Ask DNS & send HTTP request (Wi-Fi radio)\n  R->>I: 2. Forward packets over cable or fiber\n  I->>S: 3. Route packets to server IP\n  S-->>I: 4. Reply with numbered HTML packets\n  I-->>R: 5. Deliver packets to home router\n  R-->>L: 6. Beam packets over Wi-Fi radio",
+      "caption": "Wi-Fi handles only steps 1 and 6. Wired internet infrastructure carries the long-distance middle.",
+      "alt": "Sequence diagram with four columns: Laptop, Home Router, ISP and Internet, and Web Server. The request travels right from Laptop through Home Router and ISP to Web Server, and HTML packets return left along the same path."
+    },
+    {
+      "type": "buildup",
+      "nav": "Build it up",
+      "eyebrow": "Putting the pieces together",
+      "title": "Watch the connection stack up in 3 parts",
+      "steps": [
+        {
+          "title": "Your laptop turns bits into radio waves",
+          "adds": "Local Wi-Fi hop",
+          "hue": "teal",
+          "body": "Your laptop's Wi-Fi (Wireless Fidelity) radio encodes packet bits onto 2.4 GHz or 5 GHz radio waves (GHz means gigahertz, billions of cycles per second). Your router's antenna hears those waves and turns them back into bits.",
+          "diagram": {
+            "mermaid": "flowchart LR\n  L[Laptop Wi-Fi chip] <-->|Radio waves| R[Home Router]",
+            "caption": "Part 1: Radio waves only bridge the gap inside your home.",
+            "alt": "Flowchart with Laptop Wi-Fi chip connected to Home Router by a two-way Radio waves arrow."
+          }
+        },
+        {
+          "title": "Your router stamps the return address",
+          "adds": "Shared home IP",
+          "hue": "sage",
+          "body": "Every phone and laptop at home shares one public IP address from your ISP (Internet Service Provider). Your router tracks which device sent each request so replies return to the right screen."
+        },
+        {
+          "title": "TLS locks the envelopes in transit",
+          "adds": "Encryption",
+          "hue": "amber",
+          "body": "When a site uses `https://`, your browser and the server lock each packet with TLS (Transport Layer Security). Anyone listening to the airwaves sees only scrambled ciphertext."
+        }
+      ],
+      "summary": "Radio waves cross the room, the router bridges to your ISP, and TLS keeps the packets private from end to end."
+    },
+    {
+      "type": "example",
+      "nav": "Worked example",
+      "eyebrow": "Trace a real request",
+      "title": "What happens when you open example.com",
+      "input": {
+        "label": "You type in the address bar",
+        "value": "https://example.com",
+        "code": true
+      },
+      "steps": [
+        {
+          "label": "1. Resolve the name",
+          "hue": "violet",
+          "detail": "Your laptop queries DNS and receives the numeric address for `example.com`.",
+          "code": "QUERY A example.com  ->  93.184.216.34"
+        },
+        {
+          "label": "2. Send the web request over Wi-Fi",
+          "hue": "teal",
+          "detail": "After a quick TCP and TLS handshake, your browser sends an HTTP (Hypertext Transfer Protocol) request.",
+          "code": "GET / HTTP/1.1\nHost: example.com"
+        },
+        {
+          "label": "3. Receive and reassemble packets",
+          "hue": "amber",
+          "detail": "The server replies with HTML split into numbered packets that arrive over Wi-Fi.",
+          "tokens": [
+            {
+              "text": "200 OK",
+              "label": "Status",
+              "hue": "sage"
+            },
+            {
+              "text": "PKT 1/3",
+              "label": "page start",
+              "hue": "amber"
+            },
+            {
+              "text": "PKT 2/3",
+              "label": "headline",
+              "hue": "amber"
+            },
+            {
+              "text": "PKT 3/3",
+              "label": "page end",
+              "hue": "amber"
+            }
+          ]
+        }
+      ],
+      "output": {
+        "label": "On your laptop screen",
+        "value": "Your browser parses the reassembled HTML and paints the Example Domain page."
+      }
+    },
+    {
+      "type": "compare",
+      "nav": "Wi-Fi bands",
+      "eyebrow": "Side by side",
+      "title": "2.4 GHz vs 5 GHz Wi-Fi",
+      "intro": "Most modern routers broadcast two radio bands at once. Each trades speed against wall penetration.",
+      "columns": [
+        {
+          "label": "2.4 GHz band",
+          "hue": "amber"
+        },
+        {
+          "label": "5 GHz band",
+          "hue": "teal"
+        }
+      ],
+      "rows": [
+        {
+          "label": "Range through walls",
+          "cells": [
+            "Travels farther and passes through walls better",
+            "Shorter range; thick walls weaken it faster"
+          ]
+        },
+        {
+          "label": "Peak speed",
+          "cells": [
+            "Lower top speed",
+            "Higher top speed for video and downloads"
+          ]
+        },
+        {
+          "label": "Crowding",
+          "cells": [
+            "Crowded (shared with Bluetooth and older gear)",
+            "Less crowded with more non-overlapping channels"
+          ]
+        },
+        {
+          "label": "Best fit",
+          "cells": [
+            "Smart plugs, distant bedrooms, backyard",
+            "Laptops and TVs in the same room as the router"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "confusions",
+      "nav": "Confusions",
+      "eyebrow": "Common confusions",
+      "title": "Three myths worth dropping",
+      "items": [
+        {
+          "myth": "Wi-Fi is the internet.",
+          "reality": "Wi-Fi is only the wireless hop to your router. You can have full Wi-Fi bars while your ISP's outdoor cable is unplugged."
+        },
+        {
+          "myth": "Full signal bars guarantee fast downloads.",
+          "reality": "Signal bars only measure radio strength to your router. Speed also depends on your ISP plan, router crowding, and how busy the distant website is."
+        },
+        {
+          "myth": "Public Wi-Fi lets anyone read HTTPS pages.",
+          "reality": "TLS encrypts the page contents end to end. A snooper on the same Wi-Fi network can often see which domain you visited, yet they cannot read the page text or passwords."
+        }
+      ]
+    },
+    {
+      "type": "glossary",
+      "nav": "Glossary",
+      "eyebrow": "Key terms",
+      "title": "Six terms to keep handy",
+      "terms": [
+        {
+          "term": "DNS",
+          "definition": "Domain Name System. Translates website names into numeric IP addresses.",
+          "hue": "violet"
+        },
+        {
+          "term": "IP address",
+          "definition": "A unique numeric address assigned to a device or server on a network.",
+          "hue": "violet"
+        },
+        {
+          "term": "Packet",
+          "definition": "A small, numbered chunk of data sent independently across a network.",
+          "hue": "amber"
+        },
+        {
+          "term": "TCP",
+          "definition": "Transmission Control Protocol. Orders packets and resends any that drop.",
+          "hue": "amber"
+        },
+        {
+          "term": "Router",
+          "definition": "The box that bridges your local Wi-Fi network to your ISP's internet line.",
+          "hue": "sage"
+        },
+        {
+          "term": "TLS",
+          "definition": "Transport Layer Security. Encrypts `https://` traffic between your browser and a website.",
+          "hue": "teal"
+        }
+      ]
+    },
+    {
+      "type": "quiz",
+      "nav": "Final quiz",
+      "eyebrow": "Check yourself",
+      "title": "Four quick scenarios",
+      "questions": [
+        {
+          "prompt": "Your laptop shows full Wi-Fi bars, yet every website fails to load. Where is the problem most likely located?",
+          "options": [
+            "Between your laptop and your router",
+            "Between your router and the wider internet (ISP or DNS)",
+            "Inside your laptop's display driver"
+          ],
+          "answer": 1,
+          "explain": "Full bars confirm a strong local Wi-Fi link. When no site loads, the break is usually past the router at the modem, ISP, or DNS."
+        },
+        {
+          "prompt": "A microwave interferes with your Wi-Fi for a split second and one packet drops. How does your browser still show a complete page?",
+          "options": [
+            "TCP spots the missing packet number and requests a resend",
+            "DNS guesses the missing text from its cache",
+            "Your router switches automatically to Ethernet"
+          ],
+          "answer": 0,
+          "explain": "TCP tracks packet sequence numbers and asks the sender to retransmit missing pieces within milliseconds."
+        },
+        {
+          "prompt": "You move to a far bedroom behind two concrete walls. Which Wi-Fi band is more likely to hold a steady connection?",
+          "options": [
+            "5 GHz because higher frequency punches through walls better",
+            "2.4 GHz because lower frequency waves travel farther through walls",
+            "Neither; both bands have identical wall penetration"
+          ],
+          "answer": 1,
+          "explain": "Lower-frequency 2.4 GHz waves lose less energy passing through walls, trading peak speed for longer reach."
+        },
+        {
+          "prompt": "You load your bank over cafe Wi-Fi using `https://`. What stops another customer from reading your account balance?",
+          "options": [
+            "The cafe's router hides all radio waves from other laptops",
+            "Your ISP deletes packets after delivery",
+            "TLS encrypts the packets between your browser and the bank's server"
+          ],
+          "answer": 2,
+          "explain": "Radio waves travel through the air to every nearby antenna. TLS encryption ensures only your browser and the bank can unlock the data."
+        }
+      ]
+    },
+    {
+      "type": "recap",
+      "nav": "Recap",
+      "eyebrow": "Wrap-up",
+      "title": "Three things to remember",
+      "points": [
+        "**DNS** turns human names into numeric IP addresses before the page request leaves.",
+        "**Wi-Fi** is only the short radio hop between your laptop and your router.",
+        "**Packets, TCP, and TLS** slice pages into numbered pieces, replace drops, and keep traffic private."
+      ],
+      "nextSteps": [
+        "Open your browser's Developer Tools Network tab and reload any page to watch real HTTP requests complete."
+      ]
+    },
+    {
+      "type": "prose",
+      "eyebrow": "One more detail",
+      "title": "Why latency can matter more than raw speed",
+      "body": "A single web page often triggers dozens of tiny requests. Even on a fast internet plan, high latency (round-trip delay) makes pages feel sluggish because each handshake waits for a reply.",
+      "callout": {
+        "tone": "good",
+        "text": "Moving your router out of a closet and away from thick walls often cuts Wi-Fi retries and lowers latency right away."
+      }
+    }
+  ],
+  "sources": [
+    {
+      "title": "MDN Web Docs: How the Web works",
+      "url": "https://developer.mozilla.org/en-US/docs/Learn_web_development/Getting_started/Web_standards/How_the_web_works",
+      "asOf": "2025-05"
+    },
+    {
+      "title": "Cloudflare Learning Center: What is DNS?",
+      "url": "https://www.cloudflare.com/learning/dns/what-is-dns/",
+      "asOf": "2025-05"
+    },
+    {
+      "title": "Wi-Fi Alliance: Discover Wi-Fi",
+      "url": "https://www.wi-fi.org/discover-wi-fi",
+      "asOf": "2025-05"
+    }
+  ]
+}
