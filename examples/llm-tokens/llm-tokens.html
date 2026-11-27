@@ -1,0 +1,1794 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LLM Tokens, Tokenizers, and Embeddings</title>
+<meta name="description" content="A visual, step-by-step lesson on how large language models slice text into tokens, assign token IDs, and convert them into meaning-rich embedding vectors.">
+<!--
+  VISUALLY TEACH ME TEMPLATE v1.0
+  Shared dark-first, low-glare template for visually-teach-me lessons.
+  scripts/build.py fills the TITLE, DESCRIPTION and DATA placeholders (double curly braces).
+  Everything above the vtm:body marker goes in <head> for full HTML builds;
+  everything below it goes in <body>.
+-->
+<style>
+/* Low-glare dark mode by default (never pure black, never pure white).
+   Light mode is opt-in via the theme toggle and saved in localStorage. */
+:root{
+  color-scheme:dark;
+  --bg:#15171c;
+  --surface:#1b1e25;
+  --sunk:#222630;
+  --line:#2d3340;
+  --ink:#d9dde3;
+  --muted:#9aa3b2;
+  --faint:#6f7888;
+  --accent:#6ea8b8;
+  --good:#7ab88f;     --good-soft:#1d2c24;
+  --bad:#cf7d74;      --bad-soft:#2e1f20;
+  --warn:#cfa167;     --warn-soft:#2c2419;
+  /* 6 muted, desaturated concept hues */
+  --h-teal:#6ea8b8;   --h-teal-soft:#1b292e;
+  --h-amber:#cfa167;  --h-amber-soft:#2c2419;
+  --h-sage:#86b38e;   --h-sage-soft:#1d2b22;
+  --h-rose:#c9859a;   --h-rose-soft:#2d1f26;
+  --h-violet:#a395cf; --h-violet-soft:#242131;
+  --h-slate:#8ea3be;  --h-slate-soft:#1e242e;
+  --c:var(--accent);
+  --soft:var(--sunk);
+  --sans:ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono:ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:#f4f5f7;
+  --surface:#ffffff;
+  --sunk:#eaedf2;
+  --line:#d5dbe3;
+  --ink:#1e232c;
+  --muted:#535d6c;
+  --faint:#7a8596;
+  --accent:#286b7d;
+  --good:#2d6f49;     --good-soft:#e3f1e8;
+  --bad:#a63d35;      --bad-soft:#f7e4e2;
+  --warn:#94601b;     --warn-soft:#f6ebd9;
+  --h-teal:#286b7d;   --h-teal-soft:#e0eff3;
+  --h-amber:#94601b;  --h-amber-soft:#f6ebd9;
+  --h-sage:#3c7046;   --h-sage-soft:#e3f0e5;
+  --h-rose:#8f415b;   --h-rose-soft:#f4e3e9;
+  --h-violet:#5c4b94; --h-violet-soft:#ebe7f6;
+  --h-slate:#495f7a;  --h-slate-soft:#e5ebf2;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+[hidden]{display:none!important}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:17.5px;
+  line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+  padding-bottom:72px;
+}
+a{color:var(--accent);text-underline-offset:3px}
+a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+p{margin:0}
+h1,h2,h3,h4{margin:0;line-height:1.22;letter-spacing:-.015em;color:var(--ink);text-wrap:balance}
+h1{font-size:clamp(2rem,4.8vw,3rem);font-weight:750}
+h2{font-size:clamp(1.4rem,2.8vw,1.85rem);font-weight:700}
+h3{font-size:1.12rem;font-weight:650}
+code{
+  font-family:var(--mono);
+  font-size:.86em;
+  background:var(--sunk);
+  border:1px solid var(--line);
+  padding:.08em .36em;
+  border-radius:5px;
+}
+pre{
+  margin:0;
+  font-family:var(--mono);
+  font-size:.86rem;
+  line-height:1.5;
+  background:var(--sunk);
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:12px 14px;
+  overflow-x:auto;
+  color:var(--ink);
+}
+.measure{max-width:68ch}
+.eyebrow{
+  font-family:var(--mono);
+  font-size:.74rem;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--muted);
+  display:inline-block;
+}
+.err{padding:24px;color:var(--bad)}
+
+/* Hue carriers */
+.hue-teal{--c:var(--h-teal);--soft:var(--h-teal-soft)}
+.hue-amber{--c:var(--h-amber);--soft:var(--h-amber-soft)}
+.hue-sage{--c:var(--h-sage);--soft:var(--h-sage-soft)}
+.hue-rose{--c:var(--h-rose);--soft:var(--h-rose-soft)}
+.hue-violet{--c:var(--h-violet);--soft:var(--h-violet-soft)}
+.hue-slate{--c:var(--h-slate);--soft:var(--h-slate-soft)}
+
+/* Top sticky progress bar & "you are here" nav */
+.topbar{
+  position:sticky;
+  top:0;
+  z-index:20;
+  background:color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);
+}
+.progress-track{height:3px;background:var(--sunk);width:100%}
+.progress-fill{height:100%;width:0;background:var(--accent);transition:width .18s ease}
+.topbar-inner{
+  max-width:920px;
+  margin:0 auto;
+  padding:10px 18px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  justify-content:space-between;
+}
+.where{
+  font-family:var(--mono);
+  font-size:.78rem;
+  color:var(--muted);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.where strong{color:var(--ink);font-weight:600}
+.theme-btn{
+  font-family:var(--mono);
+  font-size:.76rem;
+  color:var(--muted);
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:999px;
+  padding:5px 11px;
+  cursor:pointer;
+  flex:none;
+}
+.theme-btn:hover{color:var(--ink);border-color:var(--muted)}
+
+/* Main container */
+.wrap{max-width:860px;margin:0 auto;padding:0 18px}
+
+/* Hero */
+header.hero{padding:44px 0 24px;display:flex;flex-direction:column;gap:16px}
+.hero-meta{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.pill{
+  font-family:var(--mono);
+  font-size:.76rem;
+  color:var(--muted);
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:999px;
+  padding:3px 10px;
+}
+.lede{font-size:1.1rem;color:var(--muted);max-width:64ch}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding-top:4px}
+.chip{
+  font-family:var(--mono);
+  font-size:.78rem;
+  padding:4px 11px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background:var(--surface);
+  color:var(--ink);
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
+
+/* Step nav ("On this page") */
+nav.toc{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  padding:14px 0;
+  border-top:1px solid var(--line);
+  border-bottom:1px solid var(--line);
+  margin-bottom:8px;
+}
+nav.toc a{
+  font-size:.84rem;
+  text-decoration:none;
+  color:var(--muted);
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:4px 10px;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  transition:border-color .15s,color .15s,background .15s;
+}
+nav.toc a .num{font-family:var(--mono);font-size:.74rem;color:var(--faint)}
+nav.toc a:hover{color:var(--ink);border-color:var(--muted)}
+nav.toc a.active{
+  color:var(--ink);
+  border-color:var(--accent);
+  background:var(--sunk);
+}
+nav.toc a.active .num{color:var(--accent)}
+
+/* Sections */
+section{
+  padding:38px 0 6px;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  scroll-margin-top:64px;
+}
+.sec-head{display:flex;flex-direction:column;gap:8px}
+.sec-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.step-badge{
+  font-family:var(--mono);
+  font-size:.72rem;
+  color:var(--muted);
+  background:var(--sunk);
+  border:1px solid var(--line);
+  border-radius:6px;
+  padding:2px 7px;
+}
+.intro{display:flex;flex-direction:column;gap:10px;color:var(--muted)}
+
+/* TL;DR */
+.tldr-box{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-left:4px solid var(--accent);
+  border-radius:12px;
+  padding:20px 22px;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+.tldr-box ul{margin:0;padding-left:1.25em;display:flex;flex-direction:column;gap:10px}
+.tldr-box li{max-width:66ch}
+
+/* Master analogy */
+.analogy-card{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:20px 22px;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+.role-grid{display:grid;gap:10px}
+.role-row{
+  display:grid;
+  grid-template-columns:minmax(0,150px) minmax(0,180px) minmax(0,1fr);
+  gap:10px 16px;
+  align-items:baseline;
+  background:var(--sunk);
+  border:1px solid var(--line);
+  border-left:4px solid var(--c);
+  border-radius:10px;
+  padding:12px 14px;
+}
+.role-concept{font-family:var(--mono);font-size:.84rem;font-weight:600;color:var(--c)}
+.role-name{font-weight:600;color:var(--ink)}
+.role-why{font-size:.94rem;color:var(--muted)}
+@media (max-width:680px){.role-row{grid-template-columns:1fr;gap:4px}}
+.limits-note{
+  font-size:.92rem;
+  color:var(--muted);
+  background:var(--sunk);
+  border-radius:8px;
+  padding:11px 14px;
+  border-left:3px solid var(--warn);
+}
+
+/* Concept chunk card */
+.concept-card{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-top:3px solid var(--c);
+  border-radius:12px;
+  padding:22px 24px;
+  display:flex;
+  flex-direction:column;
+  gap:15px;
+}
+.concept-card h2{color:var(--ink)}
+.concept-tag{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  font-family:var(--mono);
+  font-size:.75rem;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--c);
+}
+.mini-analogy{
+  background:var(--soft);
+  border:1px dashed var(--c);
+  border-radius:9px;
+  padding:11px 14px;
+  font-size:.95rem;
+}
+.mini-analogy .eyebrow{color:var(--c);margin-right:8px}
+.concept-body{display:flex;flex-direction:column;gap:12px}
+.takeaway{
+  background:var(--sunk);
+  border-left:3px solid var(--c);
+  border-radius:0 8px 8px 0;
+  padding:10px 14px;
+  font-size:.95rem;
+}
+
+/* Collapsible Go Deeper */
+details.deeper{
+  background:var(--sunk);
+  border:1px solid var(--line);
+  border-radius:9px;
+  padding:10px 14px;
+}
+details.deeper summary{
+  cursor:pointer;
+  font-family:var(--mono);
+  font-size:.84rem;
+  color:var(--accent);
+  font-weight:500;
+  list-style:none;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+details.deeper summary::-webkit-details-marker{display:none}
+details.deeper summary::before{content:"▸";display:inline-block;transition:transform .15s}
+details.deeper[open] summary::before{transform:rotate(90deg)}
+.deeper-body{margin-top:10px;display:flex;flex-direction:column;gap:10px;font-size:.95rem;color:var(--muted)}
+
+/* Diagrams (Mermaid + inline SVG) */
+figure.diagram-fig{
+  margin:0;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:18px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.concept-card figure.diagram-fig,.buildup-step figure.diagram-fig{background:var(--bg)}
+.diagram-stage{overflow-x:auto;display:flex;justify-content:center;align-items:center;min-height:60px}
+.diagram-stage svg{max-width:100%;height:auto;display:block}
+.diagram-fallback{
+  width:100%;
+  background:var(--sunk);
+  border:1px dashed var(--line);
+  border-radius:8px;
+  padding:12px 14px;
+  font-size:.92rem;
+  color:var(--muted);
+}
+.diagram-fallback .fb-label{font-family:var(--mono);font-size:.74rem;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);display:block;margin-bottom:4px}
+figure.diagram-fig figcaption{
+  font-size:.9rem;
+  color:var(--muted);
+  border-top:1px solid var(--line);
+  padding-top:10px;
+}
+
+/* Build it up */
+.buildup-list{display:flex;flex-direction:column;gap:14px}
+.buildup-step{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-left:4px solid var(--c);
+  border-radius:12px;
+  padding:18px 20px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.buildup-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.buildup-num{
+  font-family:var(--mono);
+  font-size:.78rem;
+  font-weight:600;
+  color:var(--c);
+  background:var(--soft);
+  border-radius:6px;
+  padding:2px 8px;
+}
+.buildup-adds{
+  font-family:var(--mono);
+  font-size:.75rem;
+  color:var(--muted);
+  background:var(--sunk);
+  border:1px solid var(--line);
+  border-radius:999px;
+  padding:2px 9px;
+}
+.buildup-summary{
+  background:var(--sunk);
+  border-radius:10px;
+  padding:14px 16px;
+  font-size:.96rem;
+}
+
+/* Worked example */
+.example-card{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:20px 22px;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+.io-box{
+  background:var(--sunk);
+  border:1px solid var(--line);
+  border-radius:9px;
+  padding:12px 14px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.io-box.out{border-left:4px solid var(--good)}
+.io-box.in{border-left:4px solid var(--accent)}
+.ex-steps{display:flex;flex-direction:column;gap:10px;padding-left:14px;border-left:2px solid var(--line)}
+.ex-step{
+  background:var(--bg);
+  border:1px solid var(--line);
+  border-left:3px solid var(--c);
+  border-radius:9px;
+  padding:12px 14px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.ex-step-label{font-weight:600;font-size:.96rem;color:var(--c)}
+.token-row{display:flex;flex-wrap:wrap;gap:8px}
+.token{
+  display:inline-flex;
+  flex-direction:column;
+  gap:2px;
+  background:var(--soft);
+  border:1px solid var(--c);
+  border-radius:8px;
+  padding:6px 10px;
+  font-family:var(--mono);
+  font-size:.82rem;
+  color:var(--ink);
+}
+.token .tlabel{font-size:.7rem;color:var(--muted);font-family:var(--sans)}
+
+/* Compare table */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:520px;font-size:.95rem}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{
+  font-family:var(--mono);
+  font-size:.78rem;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  background:var(--sunk);
+  color:var(--muted);
+}
+thead th.has-hue{color:var(--c)}
+tbody th{font-weight:600;width:24%;color:var(--ink)}
+tbody tr:last-child th,tbody tr:last-child td{border-bottom:0}
+
+/* Common confusions */
+.conf-list{display:flex;flex-direction:column;gap:12px}
+.conf-card{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:12px;
+  overflow:hidden;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);
+}
+@media (max-width:680px){.conf-card{grid-template-columns:1fr}}
+.conf-myth{background:var(--bad-soft);padding:14px 16px;border-right:1px solid var(--line)}
+@media (max-width:680px){.conf-myth{border-right:0;border-bottom:1px solid var(--line)}}
+.conf-myth .eyebrow{color:var(--bad);display:block;margin-bottom:4px}
+.conf-real{padding:14px 16px}
+.conf-real .eyebrow{color:var(--good);display:block;margin-bottom:4px}
+
+/* Quick check & Final quiz */
+.check-card,.quiz-card{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:20px 22px;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+.check-card{border-left:4px solid var(--accent)}
+.qtop{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.qprompt{font-size:1.08rem;font-weight:600;line-height:1.4}
+.opts{display:flex;flex-direction:column;gap:8px}
+.opts button{
+  font:inherit;
+  font-size:.96rem;
+  text-align:left;
+  padding:11px 14px;
+  border-radius:9px;
+  border:1px solid var(--line);
+  background:var(--bg);
+  color:var(--ink);
+  cursor:pointer;
+  transition:border-color .15s,background .15s;
+}
+.opts button:hover:not(:disabled){border-color:var(--accent);background:var(--sunk)}
+.opts button.right{border-color:var(--good);background:var(--good-soft)}
+.opts button.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.opts button:disabled{cursor:default}
+.explain{background:var(--sunk);border-radius:9px;padding:12px 14px;font-size:.95rem}
+.qnav{display:flex;justify-content:flex-end}
+.qnav button{
+  font:inherit;
+  font-size:.92rem;
+  font-weight:600;
+  padding:8px 16px;
+  border-radius:8px;
+  border:1px solid var(--accent);
+  background:var(--sunk);
+  color:var(--ink);
+  cursor:pointer;
+}
+.qnav button:hover:not(:disabled){background:var(--accent);color:var(--bg)}
+.qnav button:disabled{opacity:.4;cursor:default}
+
+/* Glossary */
+.gloss-list{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:8px 20px;
+  margin:0;
+}
+.gloss-row{
+  display:grid;
+  grid-template-columns:minmax(0,11em) minmax(0,1fr);
+  gap:8px 16px;
+  padding:12px 0;
+  border-bottom:1px solid var(--line);
+}
+.gloss-row:last-child{border-bottom:0}
+.gloss-row dt{font-family:var(--mono);font-size:.88rem;font-weight:600;color:var(--c)}
+.gloss-row dd{margin:0;font-size:.96rem;color:var(--muted)}
+@media (max-width:560px){.gloss-row{grid-template-columns:1fr;gap:3px}}
+
+/* Recap */
+.recap-card{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-left:4px solid var(--good);
+  border-radius:12px;
+  padding:20px 22px;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+.recap-card ul{margin:0;padding-left:1.25em;display:flex;flex-direction:column;gap:8px}
+.next-steps{border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px;font-size:.94rem;color:var(--muted)}
+
+/* Prose callout */
+.callout{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-left:4px solid var(--faint);
+  border-radius:0 10px 10px 0;
+  padding:13px 16px;
+  font-size:.96rem;
+}
+.callout.tone-good{border-left-color:var(--good);background:var(--good-soft)}
+.callout.tone-warn{border-left-color:var(--warn);background:var(--warn-soft)}
+
+/* Sources + Footer */
+.sources ol{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:7px;font-size:.93rem;color:var(--muted)}
+.sources .asof{font-family:var(--mono);font-size:.78rem;color:var(--faint);margin-left:6px}
+footer{
+  margin-top:44px;
+  padding-top:16px;
+  border-top:1px solid var(--line);
+  font-size:.85rem;
+  color:var(--faint);
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+</style>
+</head>
+<body>
+<div class="topbar" id="topbar">
+  <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+  <div class="topbar-inner">
+    <div class="where" id="where-label">Loading lesson...</div>
+    <button type="button" class="theme-btn" id="theme-toggle" aria-label="Switch color theme">Light mode</button>
+  </div>
+</div>
+<main class="wrap" id="lesson"></main>
+<noscript><p class="err">This lesson needs JavaScript to display.</p></noscript>
+
+<script type="application/json" id="lesson-data">{
+ "meta": {
+  "slug": "llm-tokens",
+  "title": "LLM Tokens, Tokenizers, and Embeddings",
+  "description": "A visual, step-by-step lesson on how large language models slice text into tokens, assign token IDs, and convert them into meaning-rich embedding vectors.",
+  "eyebrow": "Visual lesson · AI foundations",
+  "researched": "2026-11-26",
+  "readingTime": "8 min",
+  "footer": "Core algorithms and published tokenizer specs (BERT WordPiece, GPT-4 cl100k_base, Word2Vec, FastText) verified from primary papers and documentation; newer proprietary model tokenizers remain unverified as of 2026-11-26."
+ },
+ "hero": {
+  "headline": "How do LLMs turn plain text into math?",
+  "lede": "Language models never read letters or whole words directly. Here is how tokenizers slice sentences into reusable pieces, stamp them with IDs, and map them into vectors of meaning.",
+  "chips": [
+   {
+    "label": "Tokens & subwords",
+    "hue": "teal"
+   },
+   {
+    "label": "Tokenizers (BPE & WordPiece)",
+    "hue": "amber"
+   },
+   {
+    "label": "Token IDs",
+    "hue": "violet"
+   },
+   {
+    "label": "Token embeddings",
+    "hue": "sage"
+   },
+   {
+    "label": "Static vs contextual",
+    "hue": "rose"
+   }
+  ]
+ },
+ "sections": [
+  {
+   "type": "tldr",
+   "nav": "TL;DR",
+   "eyebrow": "30-second version",
+   "title": "The whole pipeline in 3 bullets",
+   "bullets": [
+    "**Tokenizers slice text into reusable pieces.** Models break sentences into subword chunks called tokens using algorithms like BPE (Byte Pair Encoding) or WordPiece.",
+    "**Each token gets a plain bin number.** A fixed vocabulary table swaps every token string for an integer token ID that a computer can index.",
+    "**Embeddings turn IDs into meaning coordinates.** The model looks up a vector of numbers for each ID, then transformer layers adjust those vectors using surrounding context."
+   ]
+  },
+  {
+   "type": "analogy",
+   "nav": "Analogy",
+   "eyebrow": "Master analogy",
+   "title": "Think of a modular LEGO brick workshop",
+   "premise": "Imagine a workshop that builds custom models from written blueprints. Instead of carving one unique plastic piece for every rare object, the shop stocks a fixed catalog of standard bricks, numbered storage bins, and behavior spec cards.",
+   "roles": [
+    {
+     "concept": "Tokens",
+     "role": "Standard reusable bricks",
+     "why": "Common words get one big brick; rare words snap together from smaller subword bricks.",
+     "hue": "teal"
+    },
+    {
+     "concept": "Tokenizer (BPE / WordPiece)",
+     "role": "The parts planner",
+     "why": "Reads your raw text blueprint and chooses which standard bricks represent it.",
+     "hue": "amber"
+    },
+    {
+     "concept": "Token IDs",
+     "role": "Bin numbers on the shelves",
+     "why": "Every brick type sits in one numbered bin (like Bin #4021) for instant lookup.",
+     "hue": "violet"
+    },
+    {
+     "concept": "Token embeddings",
+     "role": "Coordinate spec cards",
+     "why": "Each bin holds a list of numbers placing that brick near similar bricks in a giant similarity map.",
+     "hue": "sage"
+    },
+    {
+     "concept": "Transformer layers",
+     "role": "The master builder",
+     "why": "Reads neighboring bricks and updates each brick's role to match the full scene.",
+     "hue": "rose"
+    }
+   ],
+   "limits": "Real embedding maps have hundreds or thousands of dimensions rather than three, and real tokens can hold spaces, punctuation, or raw bytes instead of solid plastic parts."
+  },
+  {
+   "type": "diagram",
+   "nav": "Full map",
+   "eyebrow": "Visual map",
+   "title": "From raw text to a language model",
+   "hue": "teal",
+   "mermaid": "flowchart LR\n  A[\"Raw text\"] --> B[\"Tokenizer\"]\n  B --> C[\"Tokens\"]\n  C --> D[\"Token IDs\"]\n  D --> E[\"Embedding table\"]\n  E --> F[\"Transformer model\"]",
+   "caption": "Every LLM (Large Language Model) follows this five-stage handoff before generating a single word.",
+   "alt": "Left-to-right flowchart: Raw text goes to Tokenizer, which outputs Tokens, which map to Token IDs, which look up vectors in an Embedding table, which feeds the Transformer model."
+  },
+  {
+   "type": "concept",
+   "nav": "Tokens",
+   "eyebrow": "Concept 1 · Tokens & subwords",
+   "title": "Tokens are reusable chunks of text",
+   "hue": "teal",
+   "analogy": "Like stocking standard bricks for common shapes while building rare shapes from smaller snap-together pieces.",
+   "body": [
+    "Splitting text by whole words creates a huge vocabulary and fails on typos or new slang, known as OOV (Out-of-Vocabulary) words. Splitting by single characters makes sequences too long and loses word structure.",
+    "Modern LLMs use subword tokens in the middle. Common words like `apple` stay whole, while rare words like `unbreakable` split into smaller known pieces such as `un`, `break`, and `able`."
+   ],
+   "takeaway": "Subword tokens keep vocabularies compact while still encoding any word or typo.",
+   "deeper": {
+    "summary": "Go deeper: how long is one token in English?",
+    "body": [
+     "As a rough rule of thumb in English, 1 token averages about 4 characters, or roughly three-quarters of a typical word.",
+     "Spaces, punctuation, emojis, and code symbols also become tokens, so exact counts vary by language and writing style."
+    ]
+   }
+  },
+  {
+   "type": "check",
+   "prompt": "Why do modern LLMs split text into subword tokens instead of whole dictionary words?",
+   "options": [
+    "Subword tokens shrink the vocabulary while still handling rare or brand-new words",
+    "Computers can only process strings shorter than four letters",
+    "Whole-word vocabularies cannot include spaces or numbers"
+   ],
+   "answer": 0,
+   "explain": "Whole-word lists explode in size and break on unseen words. Subword pieces let a compact vocabulary build almost any word from familiar parts."
+  },
+  {
+   "type": "concept",
+   "nav": "Tokenizers",
+   "eyebrow": "Concept 2 · BPE & WordPiece",
+   "title": "How BPE and WordPiece build a vocabulary",
+   "hue": "amber",
+   "analogy": "Like a workshop manager watching thousands of blueprints to decide which brick pairs appear so often they deserve their own fused mold.",
+   "body": [
+    "A tokenizer learns its vocabulary during training before the LLM ever trains. BPE (Byte Pair Encoding), used by GPT-4's `cl100k_base` tokenizer, starts with single bytes and repeatedly merges the most frequent adjacent pair.",
+    "WordPiece, used by BERT (Bidirectional Encoder Representations from Transformers), also starts with characters and merges pairs. Instead of raw frequency, it picks the merge that best raises the likelihood of the training text, and marks continuation pieces with `##`."
+   ],
+   "diagram": {
+    "mermaid": "flowchart LR\n  S1[\"Start: l o w, l o w e r\"] --> S2[\"Merge most frequent pair: l + o -> lo\"]\n  S2 --> S3[\"Merge next pair: lo + w -> low\"]\n  S3 --> S4[\"Result: low, low + e + r\"]",
+    "caption": "BPE builds larger subword tokens step by step by fusing whichever adjacent pair appears most often.",
+    "alt": "Flowchart showing BPE starting with separated letters l o w and l o w e r, merging l and o into lo, then merging lo and w into low, resulting in low and low e r."
+   },
+   "takeaway": "BPE merges by raw pair frequency; WordPiece merges by statistical likelihood.",
+   "deeper": {
+    "summary": "Go deeper: why GPT-4 uses byte-level BPE",
+    "body": [
+     "GPT-4's `cl100k_base` tokenizer (implemented in OpenAI's `tiktoken` library) runs BPE over raw UTF-8 bytes with a vocabulary of 100,277 tokens.",
+     "Because every possible character in any script or emoji breaks down into 256 base bytes, a byte-level BPE tokenizer never hits an unknown token."
+    ]
+   }
+  },
+  {
+   "type": "check",
+   "prompt": "You run `bert-base-uncased` on the word `tokenization` and get `[\"token\", \"##ization\"]`. Which tokenizer style are you looking at?",
+   "options": [
+    "Word2Vec whole-word splitting",
+    "BERT-style WordPiece, where `##` marks a continuation subword",
+    "Byte-level BPE from GPT-4"
+   ],
+   "answer": 1,
+   "explain": "BERT's WordPiece tokenizer prefixes non-initial subword pieces with `##`, so it knows `##ization` attaches directly to `token` with no space between them. GPT-4's BPE marks word starts with a leading space instead."
+  },
+  {
+   "type": "concept",
+   "nav": "Token IDs",
+   "eyebrow": "Concept 3 · Token IDs",
+   "title": "Token IDs are plain shelf numbers",
+   "hue": "violet",
+   "analogy": "Like looking up `brick_red_2x4` on a clipboard and finding it lives in Bin #1492.",
+   "body": [
+    "Neural networks operate on numbers, so the tokenizer maps each token string to a unique integer called a token ID. In BERT's `bert-base-uncased`, IDs run from `0` to `30,521`.",
+    "These integers act strictly as lookup indices. Bin #500 and Bin #501 have no special relationship, just as adjacent locker numbers say nothing about the people who use them."
+   ],
+   "takeaway": "Token IDs identify which vocabulary entry appeared, without encoding any meaning.",
+   "deeper": {
+    "summary": "Go deeper: special tokens in the vocabulary",
+    "body": [
+     "Tokenizers reserve special IDs for structural markers that never appear in normal prose.",
+     "For example, BERT reserves `[CLS]` for classification and `[SEP]` to separate sentences, while GPT tokenizers reserve end-of-text markers to signal where a document stops."
+    ]
+   }
+  },
+  {
+   "type": "concept",
+   "nav": "Embeddings",
+   "eyebrow": "Concept 4 · Token embeddings",
+   "title": "Embeddings turn IDs into coordinates of meaning",
+   "hue": "sage",
+   "analogy": "Like pulling a coordinate card from Bin #1492 that tells the builder where that brick sits in a giant similarity map.",
+   "body": [
+    "Right at the entrance of the model sits an embedding matrix: a giant table with one row per token ID. Each row is a dense vector (a list of hundreds or thousands of decimal numbers).",
+    "During training, the model adjusts these numbers so tokens used in similar contexts land near each other in vector space. `king` and `queen` end up close together, far from `toaster`."
+   ],
+   "diagram": {
+    "svg": "\u003csvg viewBox=\"0 0 600 170\" xmlns=\"http://www.w3.org/2000/svg\">\u003crect x=\"10\" y=\"52\" width=\"118\" height=\"64\" rx=\"10\" fill=\"var(--soft)\" stroke=\"var(--c)\" stroke-width=\"1.5\"/>\u003ctext x=\"69\" y=\"79\" text-anchor=\"middle\" fill=\"var(--ink)\" font-size=\"13\" font-weight=\"600\">Token ID\u003c/text>\u003ctext x=\"69\" y=\"100\" text-anchor=\"middle\" fill=\"var(--muted)\" font-size=\"12\">ID = 42 (cat)\u003c/text>\u003cpath d=\"M134 84 L176 84\" stroke=\"var(--c)\" stroke-width=\"2\"/>\u003cpolygon points=\"176,79 186,84 176,89\" fill=\"var(--c)\"/>\u003crect x=\"192\" y=\"16\" width=\"192\" height=\"138\" rx=\"10\" fill=\"var(--surface)\" stroke=\"var(--line)\" stroke-width=\"1.5\"/>\u003ctext x=\"288\" y=\"38\" text-anchor=\"middle\" fill=\"var(--ink)\" font-size=\"12\" font-weight=\"600\">Embedding Matrix\u003c/text>\u003crect x=\"204\" y=\"48\" width=\"168\" height=\"22\" rx=\"4\" fill=\"none\" stroke=\"var(--line)\" stroke-width=\"1\"/>\u003ctext x=\"288\" y=\"63\" text-anchor=\"middle\" fill=\"var(--muted)\" font-size=\"10\">Row 41: [ 0.12, -0.44, 0.81 ]\u003c/text>\u003crect x=\"204\" y=\"76\" width=\"168\" height=\"26\" rx=\"5\" fill=\"var(--soft)\" stroke=\"var(--c)\" stroke-width=\"1.5\"/>\u003ctext x=\"288\" y=\"93\" text-anchor=\"middle\" fill=\"var(--ink)\" font-size=\"11\" font-weight=\"600\">Row 42: [ 0.78, 0.31, -0.19 ]\u003c/text>\u003crect x=\"204\" y=\"108\" width=\"168\" height=\"22\" rx=\"4\" fill=\"none\" stroke=\"var(--line)\" stroke-width=\"1\"/>\u003ctext x=\"288\" y=\"123\" text-anchor=\"middle\" fill=\"var(--muted)\" font-size=\"10\">Row 43: [-0.65, 0.09, 0.52 ]\u003c/text>\u003cpath d=\"M390 89 L432 89\" stroke=\"var(--c)\" stroke-width=\"2\"/>\u003cpolygon points=\"432,84 442,89 432,94\" fill=\"var(--c)\"/>\u003crect x=\"448\" y=\"52\" width=\"142\" height=\"70\" rx=\"10\" fill=\"var(--soft)\" stroke=\"var(--c)\" stroke-width=\"1.5\"/>\u003ctext x=\"519\" y=\"78\" text-anchor=\"middle\" fill=\"var(--ink)\" font-size=\"12\" font-weight=\"600\">Token Vector\u003c/text>\u003ctext x=\"519\" y=\"99\" text-anchor=\"middle\" fill=\"var(--muted)\" font-size=\"11\">[0.78, 0.31, -0.19]\u003c/text>\u003ctext x=\"519\" y=\"114\" text-anchor=\"middle\" fill=\"var(--muted)\" font-size=\"9\">(toy 3-D example)\u003c/text>\u003c/svg>",
+    "caption": "An embedding lookup uses the token ID as a row number to fetch a learned vector of floating-point coordinates.",
+    "alt": "Diagram showing Token ID 42 pointing to Row 42 inside an Embedding Matrix table, which outputs the highlighted Token Vector [0.78, 0.31, -0.19]."
+   },
+   "takeaway": "The embedding table converts an arbitrary ID into a learned point in meaning space.",
+   "deeper": {
+    "summary": "Go deeper: how wide are real embedding vectors?",
+    "body": [
+     "Real vectors are much wider than 3 numbers. `bert-base-uncased` uses 768 numbers per token.",
+     "Large decoder models often use several thousand numbers per token (exact internal hidden sizes for proprietary GPT-4 models are unverified publicly)."
+    ]
+   }
+  },
+  {
+   "type": "check",
+   "prompt": "Token `cat` has ID `42` and token `dog` has ID `9105`. Does that mean the model thinks cats and dogs are unrelated?",
+   "options": [
+    "Yes, because distant ID numbers mean distant meanings",
+    "No, because similarity lives in their embedding vectors, while IDs are only row numbers",
+    "Yes, unless both words share the same subword prefix"
+   ],
+   "answer": 1,
+   "explain": "Token IDs are arbitrary table indices. Row 42 and Row 9105 can still hold very similar coordinate vectors in the embedding matrix."
+  },
+  {
+   "type": "concept",
+   "nav": "Static vs contextual",
+   "eyebrow": "Concept 5 · Word2Vec, FastText, and transformers",
+   "title": "Static word vectors vs contextual transformer embeddings",
+   "hue": "rose",
+   "analogy": "Like the difference between a fixed printed spec sheet and a live spec sheet that updates once the builder sees neighboring bricks.",
+   "body": [
+    "Earlier NLP (Natural Language Processing) methods like Word2Vec (2013) learn one static vector per whole word using tasks like Skip-gram or CBOW (Continuous Bag of Words). FastText (2016) improves on this by building each word vector from the vectors of its character n-grams (overlapping letter chunks) so it can still embed rare or misspelled words.",
+    "Transformers like BERT and GPT-4 go further. They start with a static token embedding lookup, then pass the whole sequence through self-attention layers so each token's vector shifts to match its exact context."
+   ],
+   "diagram": {
+    "mermaid": "flowchart TD\n  subgraph Static[\"Static (Word2Vec / FastText)\"]\n    W1[\"river bank\"] --> V1[\"Same vector for bank\"]\n    W2[\"bank account\"] --> V1\n  end\n  subgraph Contextual[\"Contextual (BERT / GPT-4)\"]\n    C1[\"river bank\"] --> T1[\"Transformer attention\"] --> V2[\"Vector near shore, water\"]\n    C2[\"bank account\"] --> T2[\"Transformer attention\"] --> V3[\"Vector near money, loan\"]\n  end",
+    "caption": "Static methods assign one permanent vector to `bank`, while transformers produce a distinct vector for each meaning in context.",
+    "alt": "Comparison flowchart showing Static embeddings mapping both river bank and bank account to the same vector for bank, whereas Contextual transformers map river bank near shore and water, and bank account near money and loan."
+   },
+   "takeaway": "Word2Vec and FastText give each word one fixed vector; transformers update every token's vector using its neighbors."
+  },
+  {
+   "type": "buildup",
+   "nav": "Build it up",
+   "eyebrow": "Putting the pieces together",
+   "title": "Watch text become model math in 5 steps",
+   "steps": [
+    {
+     "title": "Raw text enters the pipeline",
+     "adds": "Input string",
+     "hue": "teal",
+     "body": "You type a prompt such as `Unbelievable coffee!`. At this stage it is plain Unicode text with no numerical structure for a neural network."
+    },
+    {
+     "title": "The tokenizer slices text into subword tokens",
+     "adds": "Tokenization",
+     "hue": "amber",
+     "body": "Using learned merge rules (like BPE or WordPiece), the tokenizer splits the text into known pieces, keeping common words whole and breaking rarer words into reusable parts."
+    },
+    {
+     "title": "The vocabulary assigns each token an integer ID",
+     "adds": "ID lookup",
+     "hue": "violet",
+     "body": "Each token string is replaced by its fixed bin number from the tokenizer's vocabulary table, turning the sentence into a short list of integers."
+    },
+    {
+     "title": "The embedding matrix swaps IDs for vectors",
+     "adds": "Initial embeddings",
+     "hue": "sage",
+     "body": "The model uses each integer ID to fetch one row from its embedding table (and adds position information so word order is preserved)."
+    },
+    {
+     "title": "Transformer layers blend neighboring vectors",
+     "adds": "Contextual meaning",
+     "hue": "rose",
+     "body": "Self-attention layers let every token vector read every other token vector in the prompt. By the final layer, each vector reflects the full sentence meaning and can predict the next token.",
+     "diagram": {
+      "mermaid": "flowchart LR\n  E1[\"Initial token vectors\"] --> A1[\"Self-attention layers\"]\n  A1 --> E2[\"Context-aware vectors\"]\n  E2 --> O1[\"Next-token probabilities\"]",
+      "caption": "Step 5 turns isolated lookup vectors into context-aware representations ready for prediction.",
+      "alt": "Flowchart from Initial token vectors to Self-attention layers to Context-aware vectors to Next-token probabilities."
+     }
+    }
+   ],
+   "summary": "Text splits into tokens, tokens map to IDs, IDs fetch embedding vectors, and transformer layers turn those vectors into context-aware predictions."
+  },
+  {
+   "type": "example",
+   "nav": "Worked example",
+   "eyebrow": "Trace a real sentence",
+   "title": "Tokenizing and embedding a sentence step by step",
+   "input": {
+    "label": "Input sentence",
+    "value": "Tokenizers love unbreakable coffee!",
+    "code": true
+   },
+   "steps": [
+    {
+     "label": "1. Slice into GPT-4 BPE tokens (cl100k_base)",
+     "hue": "amber",
+     "detail": "GPT-4's byte-level BPE keeps common words whole, attaches the leading space to the word after it, and splits rarer words into subwords. These are the real splits from `tiktoken`.",
+     "tokens": [
+      {
+       "text": "Token",
+       "label": "subword",
+       "hue": "teal"
+      },
+      {
+       "text": "izers",
+       "label": "suffix",
+       "hue": "teal"
+      },
+      {
+       "text": " love",
+       "label": "space+word",
+       "hue": "teal"
+      },
+      {
+       "text": " un",
+       "label": "space+prefix",
+       "hue": "teal"
+      },
+      {
+       "text": "break",
+       "label": "root",
+       "hue": "teal"
+      },
+      {
+       "text": "able",
+       "label": "suffix",
+       "hue": "teal"
+      },
+      {
+       "text": " coffee",
+       "label": "space+word",
+       "hue": "teal"
+      },
+      {
+       "text": "!",
+       "label": "punct",
+       "hue": "teal"
+      }
+     ]
+    },
+    {
+     "label": "2. Map each token to its integer ID (real cl100k_base IDs)",
+     "hue": "violet",
+     "detail": "The vocabulary swaps each piece for its bin number. These are the actual IDs `tiktoken` returns for this sentence.",
+     "code": "[\"Token\", \"izers\", \" love\", \" un\", \"break\", \"able\", \" coffee\", \"!\"]\n-> [3404, 12509, 3021, 653, 9137, 481, 11033, 0]"
+    },
+    {
+     "label": "Compare: the same sentence through BERT WordPiece",
+     "hue": "amber",
+     "detail": "`bert-base-uncased` lowercases the text, marks continuation pieces with `##`, and wraps the sequence in `[CLS]` and `[SEP]`. Same sentence, 11 tokens instead of 8, with different IDs (vocabulary of 30,522).",
+     "tokens": [
+      {
+       "text": "[CLS]",
+       "label": "101",
+       "hue": "amber"
+      },
+      {
+       "text": "token",
+       "label": "19204",
+       "hue": "amber"
+      },
+      {
+       "text": "##izer",
+       "label": "17629",
+       "hue": "amber"
+      },
+      {
+       "text": "##s",
+       "label": "2015",
+       "hue": "amber"
+      },
+      {
+       "text": "love",
+       "label": "2293",
+       "hue": "amber"
+      },
+      {
+       "text": "un",
+       "label": "4895",
+       "hue": "amber"
+      },
+      {
+       "text": "##break",
+       "label": "23890",
+       "hue": "amber"
+      },
+      {
+       "text": "##able",
+       "label": "3085",
+       "hue": "amber"
+      },
+      {
+       "text": "coffee",
+       "label": "4157",
+       "hue": "amber"
+      },
+      {
+       "text": "!",
+       "label": "999",
+       "hue": "amber"
+      },
+      {
+       "text": "[SEP]",
+       "label": "102",
+       "hue": "amber"
+      }
+     ]
+    },
+    {
+     "label": "3. Fetch embedding vectors (simplified 3-D toy vectors)",
+     "hue": "sage",
+     "detail": "Each ID pulls one row from the embedding matrix. Real models use hundreds or thousands of values per row instead of 3.",
+     "code": "ID 3404  (\"Token\")   -> [ 0.41, -0.18,  0.72]\nID 11033 (\" coffee\") -> [-0.63,  0.84,  0.15]\nID 0     (\"!\")       -> [ 0.05,  0.11, -0.92]"
+    }
+   ],
+   "output": {
+    "label": "Ready for the transformer",
+    "value": "An 8-by-D matrix of numbers (8 tokens, each represented by a D-dimensional vector) enters the model's first attention layer."
+   }
+  },
+  {
+   "type": "compare",
+   "nav": "Compare",
+   "eyebrow": "Side by side",
+   "title": "BERT vs GPT-4 vs Word2Vec vs FastText",
+   "intro": "Tokenizers and embedding systems evolved together. Here is how four landmark approaches handle text and meaning.",
+   "columns": [
+    {
+     "label": "BERT (WordPiece)",
+     "hue": "amber"
+    },
+    {
+     "label": "GPT-4 (BPE, cl100k_base)",
+     "hue": "teal"
+    },
+    {
+     "label": "Word2Vec",
+     "hue": "rose"
+    },
+    {
+     "label": "FastText",
+     "hue": "sage"
+    }
+   ],
+   "rows": [
+    {
+     "label": "Text unit",
+     "cells": [
+      "Subwords (`##` marks continuations)",
+      "Byte-level subwords (leading spaces attached)",
+      "Whole words only",
+      "Whole words built from character n-grams"
+     ]
+    },
+    {
+     "label": "Vocabulary design",
+     "cells": [
+      "Likelihood-based merges (30,522 tokens in `bert-base-uncased`)",
+      "Frequency-based byte-pair merges (100,277 tokens in `cl100k_base`)",
+      "Fixed corpus word list",
+      "Word list plus overlapping character n-grams"
+     ]
+    },
+    {
+     "label": "Handles unseen words?",
+     "cells": [
+      "Yes, splits into known subwords (a word it cannot build from its pieces becomes `[UNK]`)",
+      "Yes, falls back to raw UTF-8 bytes with zero unknown tokens",
+      "No, unseen words are dropped or mapped to one unknown vector",
+      "Yes, sums vectors of matching character n-grams"
+     ]
+    },
+    {
+     "label": "Embedding type",
+     "cells": [
+      "Contextual (shifts via bidirectional transformer layers)",
+      "Contextual (shifts via causal transformer layers)",
+      "Static (one fixed vector per word)",
+      "Static (one fixed vector per word or typo)"
+     ]
+    },
+    {
+     "label": "Common use today",
+     "cells": [
+      "Search, classification, and semantic similarity",
+      "General-purpose chat, coding, and text generation",
+      "Foundational concept and lightweight baselines",
+      "Fast text classification and noisy or misspelled text"
+     ]
+    }
+   ]
+  },
+  {
+   "type": "confusions",
+   "nav": "Confusions",
+   "eyebrow": "Common confusions",
+   "title": "Four myths that trip learners up",
+   "items": [
+    {
+     "myth": "One token equals one word.",
+     "reality": "A common word like `apple` is often 1 token, while a long or technical word like `tokenization` can split into 2 or 3 tokens. Spaces, punctuation, and emojis also consume tokens."
+    },
+    {
+     "myth": "Word2Vec embeddings work the same way as transformer embeddings.",
+     "reality": "Word2Vec assigns one static vector per word regardless of context. Transformers like BERT and GPT-4 update every token's vector using surrounding words, separating `river bank` from `bank account`."
+    },
+    {
+     "myth": "Tokens with nearby ID numbers have similar meanings.",
+     "reality": "Token IDs are arbitrary table indices assigned when building the vocabulary. Semantic similarity lives exclusively inside the learned embedding vectors."
+    },
+    {
+     "myth": "FastText uses BPE or WordPiece tokenization.",
+     "reality": "FastText breaks each word into overlapping character n-grams (for `cat` with n=3: `\u003cca`, `cat`, `at>`, plus the whole word `\u003ccat>`) and combines their vectors into one word vector. BPE and WordPiece split text into non-overlapping subword tokens before a neural network sees it."
+    }
+   ]
+  },
+  {
+   "type": "glossary",
+   "nav": "Glossary",
+   "eyebrow": "Key terms",
+   "title": "Eight terms to keep handy",
+   "terms": [
+    {
+     "term": "Token",
+     "definition": "A reusable chunk of text (a whole word, subword, space, or byte) processed as one unit by an LLM.",
+     "hue": "teal"
+    },
+    {
+     "term": "Tokenizer",
+     "definition": "The component that splits raw text into tokens and converts them to and from integer token IDs.",
+     "hue": "amber"
+    },
+    {
+     "term": "BPE",
+     "definition": "Byte Pair Encoding. A subword algorithm that iteratively merges the most frequent adjacent character or byte pairs.",
+     "hue": "amber"
+    },
+    {
+     "term": "WordPiece",
+     "definition": "A subword tokenizer used in BERT that merges pairs maximizing training-data likelihood and prefixes continuations with `##`.",
+     "hue": "amber"
+    },
+    {
+     "term": "Token ID",
+     "definition": "The integer row index assigned to a specific token in a tokenizer's vocabulary.",
+     "hue": "violet"
+    },
+    {
+     "term": "Token embedding",
+     "definition": "A dense vector of decimal numbers representing a token's learned position in meaning space.",
+     "hue": "sage"
+    },
+    {
+     "term": "Word2Vec",
+     "definition": "A classic method that learns one static embedding vector per whole word from nearby word co-occurrence.",
+     "hue": "rose"
+    },
+    {
+     "term": "FastText",
+     "definition": "An extension of Word2Vec that builds static word vectors from character n-grams so unseen or misspelled words still get vectors.",
+     "hue": "rose"
+    }
+   ]
+  },
+  {
+   "type": "quiz",
+   "nav": "Final quiz",
+   "eyebrow": "Test yourself",
+   "title": "Five quick scenarios",
+   "questions": [
+    {
+     "prompt": "A user types a brand-new product name, `HyperblasterX`, into a GPT-4 prompt. Why can the model still process it smoothly?",
+     "options": [
+      "GPT-4 adds the new word to its permanent vocabulary on the fly",
+      "Its byte-level BPE tokenizer splits the word into known subwords or bytes",
+      "GPT-4 ignores unknown words and skips straight to the next sentence"
+     ],
+     "answer": 1,
+     "explain": "A trained tokenizer's vocabulary stays fixed, yet byte-level BPE decomposes any unfamiliar word into smaller known subword pieces or raw UTF-8 bytes."
+    },
+    {
+     "prompt": "You need a lightweight, non-transformer embedding model for messy social media text full of typos like `amazzzing`. Between Word2Vec and FastText, which fits better?",
+     "options": [
+      "Word2Vec, because it maps every typo to a unique whole-word vector",
+      "Neither, because both require a WordPiece tokenizer first",
+      "FastText, because it builds vectors from overlapping character n-grams"
+     ],
+     "answer": 2,
+     "explain": "Word2Vec cannot represent unseen spellings, while FastText sums character n-gram vectors shared with `amazing` to produce a useful vector."
+    },
+    {
+     "prompt": "In the sentences `She saw a crane by the pond` and `The crane lifted a steel beam`, how do BERT's final token embeddings for `crane` compare?",
+     "options": [
+      "They are two different vectors shaped by each sentence's context",
+      "They are identical because `crane` has only one token ID",
+      "BERT drops `crane` because it has two dictionary meanings"
+     ],
+     "answer": 0,
+     "explain": "Both occurrences start with the same token ID and initial lookup row, yet BERT's self-attention layers shift each vector to reflect either a bird or a machine."
+    },
+    {
+     "prompt": "You inspect a tokenizer's vocabulary and notice `apple` is ID `18042` and `orange` is ID `18043`. What can you conclude?",
+     "options": [
+      "The model has already learned that apples and oranges are similar fruits",
+      "Nothing about meaning; IDs are only shelf indices, and similarity lives in the embedding vectors",
+      "Both words must have been merged in the very first BPE step"
+     ],
+     "answer": 1,
+     "explain": "Token IDs are plain lookup numbers. Semantic closeness is learned in the embedding matrix and transformer layers, never in the integer IDs."
+    },
+    {
+     "prompt": "How does WordPiece (in BERT) differ from BPE (in GPT-4) when choosing which symbol pair to merge during vocabulary training?",
+     "options": [
+      "WordPiece only merges whole sentences, while BPE merges single words",
+      "WordPiece assigns random pairs, while BPE sorts alphabetically",
+      "WordPiece picks the merge that best increases training-text likelihood, while BPE picks the most frequent pair"
+     ],
+     "answer": 2,
+     "explain": "Both build subword vocabularies bottom-up, with BPE guided by raw pair frequency and WordPiece guided by language-model likelihood gain."
+    }
+   ]
+  },
+  {
+   "type": "recap",
+   "nav": "Recap",
+   "eyebrow": "Wrap-up",
+   "title": "Four ideas to keep",
+   "points": [
+    "**Tokens are subword bricks.** Algorithms like BPE and WordPiece balance vocabulary size against handling rare words.",
+    "**Token IDs are plain bin numbers.** They index rows in the embedding matrix and carry no built-in meaning.",
+    "**Embeddings map tokens into vector space.** Similar concepts cluster together as lists of decimal numbers.",
+    "**Context separates transformers from static vectors.** Word2Vec and FastText assign fixed vectors, while BERT and GPT-4 adapt each vector to its sentence."
+   ],
+   "nextSteps": [
+    "Paste a tricky sentence, some code, and a non-English phrase into OpenAI's tokenizer playground or Hugging Face's tokenizer tools to see subword splits live.",
+    "Compare token counts for the same paragraph across BERT (`bert-base-uncased`) and GPT-4 (`cl100k_base`) to see how vocabulary design changes sequence length."
+   ]
+  },
+  {
+   "type": "prose",
+   "eyebrow": "Practical impact",
+   "title": "Why token count shapes real-world LLM use",
+   "body": [
+    "Because transformers process one vector per token, API pricing, latency, and context-window limits are all measured in tokens rather than words.",
+    "Text that splits into more pieces (such as rare technical jargon, dense code, or languages underrepresented in a tokenizer's training data) uses more tokens per sentence and costs more compute."
+   ],
+   "callout": {
+    "tone": "good",
+    "text": "When an LLM struggles with spelling or counting letters inside a word, the reason often starts at the tokenizer: the model sees fused subword chunks instead of individual characters."
+   }
+  }
+ ],
+ "sources": [
+  {
+   "title": "Hugging Face Transformers: Summary of the tokenizers",
+   "url": "https://huggingface.co/docs/transformers/tokenizer_summary",
+   "asOf": "2026-11"
+  },
+  {
+   "title": "OpenAI tiktoken (BPE tokenizer including cl100k_base)",
+   "url": "https://github.com/openai/tiktoken",
+   "asOf": "2026-11"
+  },
+  {
+   "title": "Sennrich et al.: Neural Machine Translation of Rare Words with Subword Units (BPE)",
+   "url": "https://arxiv.org/abs/1508.07909",
+   "asOf": "2015-08"
+  },
+  {
+   "title": "Devlin et al.: BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+   "url": "https://arxiv.org/abs/1810.04805",
+   "asOf": "2018-10"
+  },
+  {
+   "title": "Mikolov et al.: Efficient Estimation of Word Representations in Vector Space (Word2Vec)",
+   "url": "https://arxiv.org/abs/1301.3781",
+   "asOf": "2013-01"
+  },
+  {
+   "title": "Bojanowski et al.: Enriching Word Vectors with Subword Information (FastText)",
+   "url": "https://arxiv.org/abs/1607.04606",
+   "asOf": "2016-07"
+  }
+ ]
+}</script>
+<script>
+(function(){
+  "use strict";
+  var TEMPLATE_VERSION = "1.0";
+  var HUES = ["teal","amber","sage","rose","violet","slate"];
+  var root = document.getElementById("lesson");
+  var themeBtn = document.getElementById("theme-toggle");
+
+  /* Theme: dark is ALWAYS the default regardless of OS setting. */
+  function getTheme(){
+    try { return localStorage.getItem("vtm-theme") === "light" ? "light" : "dark"; }
+    catch(e){ return "dark"; }
+  }
+  function applyTheme(t){
+    if (t === "light") document.documentElement.setAttribute("data-theme", "light");
+    else document.documentElement.removeAttribute("data-theme");
+    themeBtn.textContent = t === "light" ? "Dark mode" : "Light mode";
+    try { localStorage.setItem("vtm-theme", t); } catch(e){}
+    if (typeof window.__vtmRenderMermaid === "function") window.__vtmRenderMermaid(t);
+  }
+  applyTheme(getTheme());
+  themeBtn.addEventListener("click", function(){
+    applyTheme(getTheme() === "light" ? "dark" : "light");
+  });
+
+  function esc(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];
+    });
+  }
+  function md(s){
+    var out = esc(s);
+    out = out.replace(/`([^`]+)`/g, "<code>$1</code>");
+    out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    return out;
+  }
+  function list(x){ return x == null ? [] : (Array.isArray(x) ? x : [x]); }
+  function paras(x, cls){
+    return list(x).map(function(p){ return '<p class="' + (cls || "measure") + '">' + md(p) + "</p>"; }).join("");
+  }
+  function slug(s){ return String(s).toLowerCase().replace(/[^a-z0-9-]/g, "-"); }
+  function hueCls(h){ return h && HUES.indexOf(h) >= 0 ? "hue-" + h : ""; }
+
+  var L;
+  try { L = JSON.parse(document.getElementById("lesson-data").textContent); }
+  catch(e){ root.innerHTML = '<p class="err">Lesson data could not be read: ' + esc(e.message) + "</p>"; return; }
+
+  var mermaidJobs = [];
+  window.__vtmMermaidJobs = mermaidJobs;
+
+  function renderDiagram(d, key){
+    if (!d) return "";
+    var inner = "";
+    if (d.mermaid){
+      var mid = "mmd-" + key;
+      mermaidJobs.push({ id: mid, code: d.mermaid });
+      inner = '<div class="diagram-stage" id="' + mid + '">' +
+        '<div class="diagram-fallback"><span class="fb-label">Diagram description</span>' + md(d.alt) + "</div></div>";
+    } else if (d.svg){
+      inner = '<div class="diagram-stage" role="img" aria-label="' + esc(d.alt || d.caption || "Diagram") + '">' + d.svg + "</div>";
+    }
+    return '<figure class="diagram-fig">' + inner + '<figcaption>' + md(d.caption) + "</figcaption></figure>";
+  }
+
+  function renderDeeper(d){
+    if (!d) return "";
+    return '<details class="deeper"><summary>' + md(d.summary || "Go deeper") +
+      '</summary><div class="deeper-body">' + paras(d.body) + "</div></details>";
+  }
+
+  function head(s, stepLabel){
+    var h = '<div class="sec-head">';
+    if (stepLabel || s.eyebrow){
+      h += '<div class="sec-top">';
+      if (stepLabel) h += '<span class="step-badge">' + esc(stepLabel) + "</span>";
+      if (s.eyebrow) h += '<span class="eyebrow">' + md(s.eyebrow) + "</span>";
+      h += "</div>";
+    }
+    if (s.title) h += "<h2>" + md(s.title) + "</h2>";
+    if (s.intro) h += '<div class="intro">' + paras(s.intro) + "</div>";
+    return h + "</div>";
+  }
+
+  var R = {};
+
+  R.tldr = function(s, sid, stepLabel){
+    return head(s, stepLabel) + '<div class="tldr-box"><ul>' +
+      list(s.bullets).map(function(b){ return "<li>" + md(b) + "</li>"; }).join("") +
+      "</ul></div>";
+  };
+
+  R.analogy = function(s, sid, stepLabel){
+    var h = head(s, stepLabel) + '<div class="analogy-card">' + paras(s.premise) + '<div class="role-grid">';
+    h += list(s.roles).map(function(r){
+      return '<div class="role-row ' + hueCls(r.hue) + '"><div class="role-concept">' + md(r.concept) +
+        '</div><div class="role-name">' + md(r.role) + '</div><div class="role-why">' + md(r.why) + "</div></div>";
+    }).join("") + "</div>";
+    if (s.limits) h += '<div class="limits-note"><strong>Where the analogy stops:</strong> ' + md(s.limits) + "</div>";
+    return h + "</div>";
+  };
+
+  R.concept = function(s, sid, stepLabel){
+    var h = '<article class="concept-card ' + hueCls(s.hue) + '">';
+    h += '<div class="sec-top">';
+    if (stepLabel) h += '<span class="step-badge">' + esc(stepLabel) + "</span>";
+    if (s.eyebrow) h += '<span class="concept-tag"><span class="dot"></span>' + md(s.eyebrow) + "</span>";
+    h += "</div>";
+    h += "<h2>" + md(s.title) + "</h2>";
+    if (s.analogy) h += '<div class="mini-analogy"><span class="eyebrow">Analogy</span>' + md(s.analogy) + "</div>";
+    h += '<div class="concept-body">' + paras(s.body) + "</div>";
+    if (s.diagram) h += renderDiagram(s.diagram, sid + "-d");
+    if (s.takeaway) h += '<div class="takeaway"><strong>Key idea:</strong> ' + md(s.takeaway) + "</div>";
+    if (s.deeper) h += renderDeeper(s.deeper);
+    return h + "</article>";
+  };
+
+  R.diagram = function(s, sid, stepLabel){
+    return head(s, stepLabel) +
+      '<div class="' + hueCls(s.hue) + '">' + renderDiagram(s, sid + "-d") + "</div>" +
+      renderDeeper(s.deeper);
+  };
+
+  R.buildup = function(s, sid, stepLabel){
+    var h = head(s, stepLabel) + '<div class="buildup-list">';
+    h += list(s.steps).map(function(st, idx){
+      var sh = '<div class="buildup-step ' + hueCls(st.hue) + '"><div class="buildup-head">' +
+        '<span class="buildup-num">Part ' + (idx + 1) + "</span><h3>" + md(st.title) + "</h3>";
+      if (st.adds) sh += '<span class="buildup-adds">+ ' + md(st.adds) + "</span>";
+      sh += "</div>" + paras(st.body);
+      if (st.diagram) sh += renderDiagram(st.diagram, sid + "-st" + idx);
+      return sh + "</div>";
+    }).join("") + "</div>";
+    if (s.summary) h += '<div class="buildup-summary measure">' + md(s.summary) + "</div>";
+    return h;
+  };
+
+  function ioBlock(val, defaultLabel, kind){
+    if (typeof val === "string"){
+      return '<div class="io-box ' + kind + '"><span class="eyebrow">' + esc(defaultLabel) + "</span><p>" + md(val) + "</p></div>";
+    }
+    var inner = val.code ? "<pre>" + esc(val.value) + "</pre>" : "<p>" + md(val.value) + "</p>";
+    return '<div class="io-box ' + kind + '"><span class="eyebrow">' + md(val.label || defaultLabel) + "</span>" + inner + "</div>";
+  }
+  R.example = function(s, sid, stepLabel){
+    var h = head(s, stepLabel) + '<div class="example-card">';
+    h += ioBlock(s.input, "Input", "in");
+    h += '<div class="ex-steps">' + list(s.steps).map(function(st){
+      var sh = '<div class="ex-step ' + hueCls(st.hue) + '"><div class="ex-step-label">' + md(st.label) + "</div>" +
+        '<p class="measure">' + md(st.detail) + "</p>";
+      if (st.code) sh += "<pre>" + esc(st.code) + "</pre>";
+      if (st.tokens && st.tokens.length){
+        sh += '<div class="token-row">' + list(st.tokens).map(function(tok){
+          if (typeof tok === "string") return '<span class="token">' + esc(tok) + "</span>";
+          return '<span class="token ' + hueCls(tok.hue || st.hue) + '"><span>' + esc(tok.text) + "</span>" +
+            (tok.label ? '<span class="tlabel">' + md(tok.label) + "</span>" : "") + "</span>";
+        }).join("") + "</div>";
+      }
+      return sh + "</div>";
+    }).join("") + "</div>";
+    h += ioBlock(s.output, "Output", "out");
+    if (s.deeper) h += renderDeeper(s.deeper);
+    return h + "</div>";
+  };
+
+  R.compare = function(s, sid, stepLabel){
+    var cols = list(s.columns);
+    var h = head(s, stepLabel) + '<div class="tablewrap"><table><thead><tr><th></th>' + cols.map(function(c){
+      if (typeof c === "string") return "<th>" + md(c) + "</th>";
+      var hc = hueCls(c.hue);
+      return '<th class="' + (hc ? hc + " has-hue" : "") + '">' + md(c.label) + "</th>";
+    }).join("") + "</tr></thead><tbody>";
+    h += list(s.rows).map(function(r){
+      return "<tr><th>" + md(r.label) + "</th>" + list(r.cells).map(function(c){ return "<td>" + md(c) + "</td>"; }).join("") + "</tr>";
+    }).join("");
+    return h + "</tbody></table></div>";
+  };
+
+  R.confusions = function(s, sid, stepLabel){
+    return head(s, stepLabel) + '<div class="conf-list">' + list(s.items).map(function(it){
+      return '<div class="conf-card"><div class="conf-myth"><span class="eyebrow">Common myth</span><p>' + md(it.myth) +
+        '</p></div><div class="conf-real"><span class="eyebrow">What actually happens</span><p>' + md(it.reality) + "</p></div></div>";
+    }).join("") + "</div>";
+  };
+
+  R.check = function(s, sid){
+    return '<div class="check-card"><span class="eyebrow">' + md(s.eyebrow || "Quick check") + "</span>" +
+      (s.title ? "<h3>" + md(s.title) + "</h3>" : "") +
+      '<div class="qprompt">' + md(s.prompt) + '</div><div class="opts"></div><div class="explain" hidden></div></div>';
+  };
+  function wireCheck(sec, s, sid){
+    var O = sec.querySelector(".opts"), E = sec.querySelector(".explain");
+    list(s.options).forEach(function(opt, idx){
+      var b = document.createElement("button");
+      b.type = "button";
+      b.id = sid + "-o" + idx;
+      b.innerHTML = md(opt);
+      b.addEventListener("click", function(){
+        Array.prototype.forEach.call(O.querySelectorAll("button"), function(x, k){
+          x.disabled = true;
+          if (k === s.answer) x.classList.add("right");
+        });
+        if (idx === s.answer){
+          E.innerHTML = "<strong>Right.</strong> " + md(s.explain);
+        } else {
+          b.classList.add("wrong");
+          E.innerHTML = "<strong>Not quite.</strong> " + md(s.explain);
+        }
+        E.hidden = false;
+      });
+      O.appendChild(b);
+    });
+  }
+
+  R.glossary = function(s, sid, stepLabel){
+    return head(s, stepLabel) + '<dl class="gloss-list">' + list(s.terms).map(function(t){
+      return '<div class="gloss-row ' + hueCls(t.hue) + '"><dt>' + md(t.term) + "</dt><dd>" + md(t.definition) + "</dd></div>";
+    }).join("") + "</dl>";
+  };
+
+  R.quiz = function(s, sid, stepLabel){
+    return head(s, stepLabel) + '<div class="quiz-card"><div class="qtop"><span class="eyebrow qcount"></span><span class="eyebrow qscore"></span></div>' +
+      '<div class="qprompt" aria-live="polite"></div><div class="opts"></div><div class="explain" hidden></div>' +
+      '<div class="qnav"><button type="button" class="qnext" id="' + sid + '-next" disabled>Next question</button></div></div>';
+  };
+  function wireQuiz(sec, s, sid){
+    var Q = list(s.questions), i = 0, score = 0;
+    var P = sec.querySelector(".qprompt"), O = sec.querySelector(".opts"), E = sec.querySelector(".explain"),
+        N = sec.querySelector(".qnext"), C = sec.querySelector(".qcount"), S = sec.querySelector(".qscore");
+    function show(){
+      if (i >= Q.length){
+        C.textContent = "Complete";
+        P.textContent = "You scored " + score + " of " + Q.length + ".";
+        O.innerHTML = "";
+        E.hidden = false;
+        E.textContent = score === Q.length ? "Every single one. You have the mental model down." : "Jump back to any section you missed using the bar above, then try again.";
+        N.textContent = "Try again";
+        N.disabled = false;
+        return;
+      }
+      var q = Q[i];
+      C.textContent = "Question " + (i + 1) + " of " + Q.length;
+      S.textContent = "Score " + score;
+      P.innerHTML = md(q.prompt);
+      E.hidden = true;
+      N.disabled = true;
+      N.textContent = i === Q.length - 1 ? "See score" : "Next question";
+      O.innerHTML = "";
+      list(q.options).forEach(function(opt, idx){
+        var b = document.createElement("button");
+        b.type = "button";
+        b.id = sid + "-q" + i + "o" + idx;
+        b.innerHTML = md(opt);
+        b.addEventListener("click", function(){
+          Array.prototype.forEach.call(O.querySelectorAll("button"), function(x, k){
+            x.disabled = true;
+            if (k === q.answer) x.classList.add("right");
+          });
+          if (idx === q.answer){
+            score++;
+            E.innerHTML = "<strong>Right.</strong> " + md(q.explain);
+          } else {
+            b.classList.add("wrong");
+            E.innerHTML = "<strong>Not quite.</strong> " + md(q.explain);
+          }
+          S.textContent = "Score " + score;
+          E.hidden = false;
+          N.disabled = false;
+        });
+        O.appendChild(b);
+      });
+    }
+    N.addEventListener("click", function(){
+      if (i >= Q.length){ i = 0; score = 0; } else { i++; }
+      show();
+    });
+    show();
+  }
+
+  R.recap = function(s, sid, stepLabel){
+    var h = head(s, stepLabel) + '<div class="recap-card"><ul>' +
+      list(s.points).map(function(p){ return "<li>" + md(p) + "</li>"; }).join("") + "</ul>";
+    if (s.nextSteps && s.nextSteps.length){
+      h += '<div class="next-steps"><span class="eyebrow">Try this next</span><ul>' +
+        list(s.nextSteps).map(function(n){ return "<li>" + md(n) + "</li>"; }).join("") + "</ul></div>";
+    }
+    return h + "</div>";
+  };
+
+  R.prose = function(s, sid, stepLabel){
+    var h = head(s, stepLabel) + paras(s.body);
+    if (s.callout) h += '<div class="callout tone-' + esc(s.callout.tone || "neutral") + '">' + md(s.callout.text) + "</div>";
+    if (s.deeper) h += renderDeeper(s.deeper);
+    return h;
+  };
+
+  /* Assemble page */
+  var m = L.meta || {}, hero = L.hero || {};
+  var out = '<header class="hero"><div class="hero-meta"><span class="eyebrow">' + md(m.eyebrow) + "</span>";
+  if (m.readingTime) out += '<span class="pill">' + md(m.readingTime) + " read</span>";
+  out += "</div><h1>" + md(hero.headline || m.title) + "</h1>";
+  if (hero.lede) out += '<p class="lede">' + md(hero.lede) + "</p>";
+  if (hero.chips && hero.chips.length){
+    out += '<div class="chips" aria-label="Concept colors">' + list(hero.chips).map(function(c){
+      return '<span class="chip ' + hueCls(c.hue) + '"><span class="dot"></span>' + md(c.label) + "</span>";
+    }).join("") + "</div>";
+  }
+  out += "</header>";
+
+  var stepNum = 0;
+  var secs = list(L.sections).map(function(s, i){
+    var hasStep = !!s.nav;
+    if (hasStep) stepNum++;
+    return { s: s, id: slug(s.id || (s.type + "-" + (i + 1))), step: hasStep ? stepNum : 0 };
+  });
+  var totalSteps = stepNum;
+
+  var navItems = secs.filter(function(x){ return x.s.nav; });
+  if (navItems.length){
+    out += '<nav class="toc" aria-label="Lesson steps">' + navItems.map(function(x){
+      return '<a href="#' + x.id + '" data-target="' + x.id + '"><span class="num">' + x.step + "</span>" + md(x.s.nav) + "</a>";
+    }).join("") + "</nav>";
+  }
+
+  secs.forEach(function(x){
+    var fn = R[x.s.type];
+    var stepLabel = x.step ? ("Step " + x.step + " of " + totalSteps) : "";
+    out += '<section id="' + x.id + '" data-step="' + x.step + '" data-nav="' + esc(x.s.nav || x.s.title || "") + '">' +
+      (fn ? fn(x.s, x.id, stepLabel) : '<p class="err">Unknown section type: ' + esc(x.s.type) + "</p>") + "</section>";
+  });
+
+  if (list(L.sources).length){
+    out += '<section class="sources" id="sources"><span class="eyebrow">Sources</span><ol>' + list(L.sources).map(function(src){
+      return '<li><a href="' + esc(src.url) + '" target="_blank" rel="noopener">' + md(src.title) + "</a>" +
+        (src.asOf ? '<span class="asof">as of ' + esc(src.asOf) + "</span>" : "") + "</li>";
+    }).join("") + "</ol></section>";
+  }
+
+  function niceDate(s){
+    var p = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || "");
+    if (!p) return esc(s);
+    return new Date(+p[1], +p[2] - 1, +p[3]).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  }
+  out += "<footer><span>" + (m.researched ? "Checked " + niceDate(m.researched) + ". " : "") + md(m.footer || "") + "</span>" +
+    "<span>Visually Teach Me template v" + TEMPLATE_VERSION + "</span></footer>";
+  root.innerHTML = out;
+
+  /* Wire interactive widgets */
+  secs.forEach(function(x){
+    var el = document.getElementById(x.id);
+    if (x.s.type === "check") wireCheck(el, x.s, x.id);
+    if (x.s.type === "quiz") wireQuiz(el, x.s, x.id);
+  });
+
+  /* "You are here" progress tracker */
+  var whereEl = document.getElementById("where-label");
+  var fillEl = document.getElementById("progress-fill");
+  var tocLinks = Array.prototype.slice.call(document.querySelectorAll("nav.toc a"));
+  var tracked = navItems.map(function(x){ return { id: x.id, step: x.step, label: x.s.nav, el: document.getElementById(x.id) }; });
+
+  function setWhere(item){
+    if (!item){ whereEl.innerHTML = "<strong>" + esc(m.title || "Lesson") + "</strong>"; return; }
+    whereEl.innerHTML = "Step " + item.step + " of " + totalSteps + " &middot; <strong>" + esc(item.label) + "</strong>";
+    tocLinks.forEach(function(a){ a.classList.toggle("active", a.dataset.target === item.id); });
+  }
+  setWhere(tracked[0]);
+
+  if ("IntersectionObserver" in window && tracked.length){
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if (en.isIntersecting){
+          var match = tracked.filter(function(t){ return t.id === en.target.id; })[0];
+          if (match) setWhere(match);
+        }
+      });
+    }, { rootMargin: "-20% 0px -65% 0px", threshold: 0 });
+    tracked.forEach(function(t){ if (t.el) io.observe(t.el); });
+  }
+
+  function updateProgress(){
+    var doc = document.documentElement;
+    var max = doc.scrollHeight - window.innerHeight;
+    var pct = max > 0 ? Math.min(100, Math.max(0, (window.scrollY / max) * 100)) : 0;
+    fillEl.style.width = pct.toFixed(1) + "%";
+  }
+  window.addEventListener("scroll", updateProgress, { passive: true });
+  updateProgress();
+})();
+</script>
+<script type="module">
+const jobs = window.__vtmMermaidJobs || [];
+if (jobs.length) {
+  let mermaidMod = null;
+  let renderSeq = 0;
+
+  function mermaidConfig(theme) {
+    if (theme === "light") {
+      return {
+        startOnLoad: false,
+        theme: "base",
+        securityLevel: "strict",
+        themeVariables: {
+          background: "#ffffff",
+          primaryColor: "#e0eff3",
+          primaryTextColor: "#1e232c",
+          primaryBorderColor: "#286b7d",
+          secondaryColor: "#ebe7f6",
+          tertiaryColor: "#f6ebd9",
+          lineColor: "#535d6c",
+          textColor: "#1e232c",
+          actorBkg: "#eaedf2",
+          actorBorder: "#286b7d",
+          actorTextColor: "#1e232c",
+          signalColor: "#535d6c",
+          signalTextColor: "#1e232c",
+          noteBkgColor: "#f6ebd9",
+          noteBorderColor: "#94601b",
+          noteTextColor: "#1e232c",
+          fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+        }
+      };
+    }
+    return {
+      startOnLoad: false,
+      theme: "base",
+      securityLevel: "strict",
+      themeVariables: {
+        background: "#1b1e25",
+        primaryColor: "#222630",
+        primaryTextColor: "#d9dde3",
+        primaryBorderColor: "#6ea8b8",
+        secondaryColor: "#242131",
+        tertiaryColor: "#2c2419",
+        lineColor: "#8ea3be",
+        textColor: "#d9dde3",
+        actorBkg: "#222630",
+        actorBorder: "#6ea8b8",
+        actorTextColor: "#d9dde3",
+        signalColor: "#9aa3b2",
+        signalTextColor: "#d9dde3",
+        noteBkgColor: "#2c2419",
+        noteBorderColor: "#cfa167",
+        noteTextColor: "#d9dde3",
+        fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+      }
+    };
+  }
+
+  async function renderAll(theme) {
+    if (!mermaidMod) return;
+    mermaidMod.initialize(mermaidConfig(theme));
+    renderSeq++;
+    for (const job of jobs) {
+      const host = document.getElementById(job.id);
+      if (!host) continue;
+      try {
+        const { svg } = await mermaidMod.render(job.id + "-svg-" + renderSeq, job.code);
+        host.innerHTML = svg;
+      } catch (err) {
+        /* Leave text fallback in place if diagram syntax fails */
+      }
+    }
+  }
+
+  window.__vtmRenderMermaid = (theme) => { renderAll(theme); };
+
+  try {
+    const mod = await import("https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs");
+    mermaidMod = mod.default || mod;
+    const current = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+    await renderAll(current);
+  } catch (err) {
+    /* Offline or CDN unavailable: text fallback stays visible automatically. */
+  }
+}
+</script>
+</body>
+</html>

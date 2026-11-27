@@ -1,0 +1,686 @@
+{
+  "meta": {
+    "slug": "llm-tokens",
+    "title": "LLM Tokens, Tokenizers, and Embeddings",
+    "description": "A visual, step-by-step lesson on how large language models slice text into tokens, assign token IDs, and convert them into meaning-rich embedding vectors.",
+    "eyebrow": "Visual lesson · AI foundations",
+    "researched": "2026-11-26",
+    "readingTime": "8 min",
+    "footer": "Core algorithms and published tokenizer specs (BERT WordPiece, GPT-4 cl100k_base, Word2Vec, FastText) verified from primary papers and documentation; newer proprietary model tokenizers remain unverified as of 2026-11-26."
+  },
+  "hero": {
+    "headline": "How do LLMs turn plain text into math?",
+    "lede": "Language models never read letters or whole words directly. Here is how tokenizers slice sentences into reusable pieces, stamp them with IDs, and map them into vectors of meaning.",
+    "chips": [
+      {
+        "label": "Tokens & subwords",
+        "hue": "teal"
+      },
+      {
+        "label": "Tokenizers (BPE & WordPiece)",
+        "hue": "amber"
+      },
+      {
+        "label": "Token IDs",
+        "hue": "violet"
+      },
+      {
+        "label": "Token embeddings",
+        "hue": "sage"
+      },
+      {
+        "label": "Static vs contextual",
+        "hue": "rose"
+      }
+    ]
+  },
+  "sections": [
+    {
+      "type": "tldr",
+      "nav": "TL;DR",
+      "eyebrow": "30-second version",
+      "title": "The whole pipeline in 3 bullets",
+      "bullets": [
+        "**Tokenizers slice text into reusable pieces.** Models break sentences into subword chunks called tokens using algorithms like BPE (Byte Pair Encoding) or WordPiece.",
+        "**Each token gets a plain bin number.** A fixed vocabulary table swaps every token string for an integer token ID that a computer can index.",
+        "**Embeddings turn IDs into meaning coordinates.** The model looks up a vector of numbers for each ID, then transformer layers adjust those vectors using surrounding context."
+      ]
+    },
+    {
+      "type": "analogy",
+      "nav": "Analogy",
+      "eyebrow": "Master analogy",
+      "title": "Think of a modular LEGO brick workshop",
+      "premise": "Imagine a workshop that builds custom models from written blueprints. Instead of carving one unique plastic piece for every rare object, the shop stocks a fixed catalog of standard bricks, numbered storage bins, and behavior spec cards.",
+      "roles": [
+        {
+          "concept": "Tokens",
+          "role": "Standard reusable bricks",
+          "why": "Common words get one big brick; rare words snap together from smaller subword bricks.",
+          "hue": "teal"
+        },
+        {
+          "concept": "Tokenizer (BPE / WordPiece)",
+          "role": "The parts planner",
+          "why": "Reads your raw text blueprint and chooses which standard bricks represent it.",
+          "hue": "amber"
+        },
+        {
+          "concept": "Token IDs",
+          "role": "Bin numbers on the shelves",
+          "why": "Every brick type sits in one numbered bin (like Bin #4021) for instant lookup.",
+          "hue": "violet"
+        },
+        {
+          "concept": "Token embeddings",
+          "role": "Coordinate spec cards",
+          "why": "Each bin holds a list of numbers placing that brick near similar bricks in a giant similarity map.",
+          "hue": "sage"
+        },
+        {
+          "concept": "Transformer layers",
+          "role": "The master builder",
+          "why": "Reads neighboring bricks and updates each brick's role to match the full scene.",
+          "hue": "rose"
+        }
+      ],
+      "limits": "Real embedding maps have hundreds or thousands of dimensions rather than three, and real tokens can hold spaces, punctuation, or raw bytes instead of solid plastic parts."
+    },
+    {
+      "type": "diagram",
+      "nav": "Full map",
+      "eyebrow": "Visual map",
+      "title": "From raw text to a language model",
+      "hue": "teal",
+      "mermaid": "flowchart LR\n  A[\"Raw text\"] --> B[\"Tokenizer\"]\n  B --> C[\"Tokens\"]\n  C --> D[\"Token IDs\"]\n  D --> E[\"Embedding table\"]\n  E --> F[\"Transformer model\"]",
+      "caption": "Every LLM (Large Language Model) follows this five-stage handoff before generating a single word.",
+      "alt": "Left-to-right flowchart: Raw text goes to Tokenizer, which outputs Tokens, which map to Token IDs, which look up vectors in an Embedding table, which feeds the Transformer model."
+    },
+    {
+      "type": "concept",
+      "nav": "Tokens",
+      "eyebrow": "Concept 1 · Tokens & subwords",
+      "title": "Tokens are reusable chunks of text",
+      "hue": "teal",
+      "analogy": "Like stocking standard bricks for common shapes while building rare shapes from smaller snap-together pieces.",
+      "body": [
+        "Splitting text by whole words creates a huge vocabulary and fails on typos or new slang, known as OOV (Out-of-Vocabulary) words. Splitting by single characters makes sequences too long and loses word structure.",
+        "Modern LLMs use subword tokens in the middle. Common words like `apple` stay whole, while rare words like `unbreakable` split into smaller known pieces such as `un`, `break`, and `able`."
+      ],
+      "takeaway": "Subword tokens keep vocabularies compact while still encoding any word or typo.",
+      "deeper": {
+        "summary": "Go deeper: how long is one token in English?",
+        "body": [
+          "As a rough rule of thumb in English, 1 token averages about 4 characters, or roughly three-quarters of a typical word.",
+          "Spaces, punctuation, emojis, and code symbols also become tokens, so exact counts vary by language and writing style."
+        ]
+      }
+    },
+    {
+      "type": "check",
+      "prompt": "Why do modern LLMs split text into subword tokens instead of whole dictionary words?",
+      "options": [
+        "Subword tokens shrink the vocabulary while still handling rare or brand-new words",
+        "Computers can only process strings shorter than four letters",
+        "Whole-word vocabularies cannot include spaces or numbers"
+      ],
+      "answer": 0,
+      "explain": "Whole-word lists explode in size and break on unseen words. Subword pieces let a compact vocabulary build almost any word from familiar parts."
+    },
+    {
+      "type": "concept",
+      "nav": "Tokenizers",
+      "eyebrow": "Concept 2 · BPE & WordPiece",
+      "title": "How BPE and WordPiece build a vocabulary",
+      "hue": "amber",
+      "analogy": "Like a workshop manager watching thousands of blueprints to decide which brick pairs appear so often they deserve their own fused mold.",
+      "body": [
+        "A tokenizer learns its vocabulary during training before the LLM ever trains. BPE (Byte Pair Encoding), used by GPT-4's `cl100k_base` tokenizer, starts with single bytes and repeatedly merges the most frequent adjacent pair.",
+        "WordPiece, used by BERT (Bidirectional Encoder Representations from Transformers), also starts with characters and merges pairs. Instead of raw frequency, it picks the merge that best raises the likelihood of the training text, and marks continuation pieces with `##`."
+      ],
+      "diagram": {
+        "mermaid": "flowchart LR\n  S1[\"Start: l o w, l o w e r\"] --> S2[\"Merge most frequent pair: l + o -> lo\"]\n  S2 --> S3[\"Merge next pair: lo + w -> low\"]\n  S3 --> S4[\"Result: low, low + e + r\"]",
+        "caption": "BPE builds larger subword tokens step by step by fusing whichever adjacent pair appears most often.",
+        "alt": "Flowchart showing BPE starting with separated letters l o w and l o w e r, merging l and o into lo, then merging lo and w into low, resulting in low and low e r."
+      },
+      "takeaway": "BPE merges by raw pair frequency; WordPiece merges by statistical likelihood.",
+      "deeper": {
+        "summary": "Go deeper: why GPT-4 uses byte-level BPE",
+        "body": [
+          "GPT-4's `cl100k_base` tokenizer (implemented in OpenAI's `tiktoken` library) runs BPE over raw UTF-8 bytes with a vocabulary of 100,277 tokens.",
+          "Because every possible character in any script or emoji breaks down into 256 base bytes, a byte-level BPE tokenizer never hits an unknown token."
+        ]
+      }
+    },
+    {
+      "type": "check",
+      "prompt": "You run `bert-base-uncased` on the word `tokenization` and get `[\"token\", \"##ization\"]`. Which tokenizer style are you looking at?",
+      "options": [
+        "Word2Vec whole-word splitting",
+        "BERT-style WordPiece, where `##` marks a continuation subword",
+        "Byte-level BPE from GPT-4"
+      ],
+      "answer": 1,
+      "explain": "BERT's WordPiece tokenizer prefixes non-initial subword pieces with `##`, so it knows `##ization` attaches directly to `token` with no space between them. GPT-4's BPE marks word starts with a leading space instead."
+    },
+    {
+      "type": "concept",
+      "nav": "Token IDs",
+      "eyebrow": "Concept 3 · Token IDs",
+      "title": "Token IDs are plain shelf numbers",
+      "hue": "violet",
+      "analogy": "Like looking up `brick_red_2x4` on a clipboard and finding it lives in Bin #1492.",
+      "body": [
+        "Neural networks operate on numbers, so the tokenizer maps each token string to a unique integer called a token ID. In BERT's `bert-base-uncased`, IDs run from `0` to `30,521`.",
+        "These integers act strictly as lookup indices. Bin #500 and Bin #501 have no special relationship, just as adjacent locker numbers say nothing about the people who use them."
+      ],
+      "takeaway": "Token IDs identify which vocabulary entry appeared, without encoding any meaning.",
+      "deeper": {
+        "summary": "Go deeper: special tokens in the vocabulary",
+        "body": [
+          "Tokenizers reserve special IDs for structural markers that never appear in normal prose.",
+          "For example, BERT reserves `[CLS]` for classification and `[SEP]` to separate sentences, while GPT tokenizers reserve end-of-text markers to signal where a document stops."
+        ]
+      }
+    },
+    {
+      "type": "concept",
+      "nav": "Embeddings",
+      "eyebrow": "Concept 4 · Token embeddings",
+      "title": "Embeddings turn IDs into coordinates of meaning",
+      "hue": "sage",
+      "analogy": "Like pulling a coordinate card from Bin #1492 that tells the builder where that brick sits in a giant similarity map.",
+      "body": [
+        "Right at the entrance of the model sits an embedding matrix: a giant table with one row per token ID. Each row is a dense vector (a list of hundreds or thousands of decimal numbers).",
+        "During training, the model adjusts these numbers so tokens used in similar contexts land near each other in vector space. `king` and `queen` end up close together, far from `toaster`."
+      ],
+      "diagram": {
+        "svg": "<svg viewBox=\"0 0 600 170\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"10\" y=\"52\" width=\"118\" height=\"64\" rx=\"10\" fill=\"var(--soft)\" stroke=\"var(--c)\" stroke-width=\"1.5\"/><text x=\"69\" y=\"79\" text-anchor=\"middle\" fill=\"var(--ink)\" font-size=\"13\" font-weight=\"600\">Token ID</text><text x=\"69\" y=\"100\" text-anchor=\"middle\" fill=\"var(--muted)\" font-size=\"12\">ID = 42 (cat)</text><path d=\"M134 84 L176 84\" stroke=\"var(--c)\" stroke-width=\"2\"/><polygon points=\"176,79 186,84 176,89\" fill=\"var(--c)\"/><rect x=\"192\" y=\"16\" width=\"192\" height=\"138\" rx=\"10\" fill=\"var(--surface)\" stroke=\"var(--line)\" stroke-width=\"1.5\"/><text x=\"288\" y=\"38\" text-anchor=\"middle\" fill=\"var(--ink)\" font-size=\"12\" font-weight=\"600\">Embedding Matrix</text><rect x=\"204\" y=\"48\" width=\"168\" height=\"22\" rx=\"4\" fill=\"none\" stroke=\"var(--line)\" stroke-width=\"1\"/><text x=\"288\" y=\"63\" text-anchor=\"middle\" fill=\"var(--muted)\" font-size=\"10\">Row 41: [ 0.12, -0.44, 0.81 ]</text><rect x=\"204\" y=\"76\" width=\"168\" height=\"26\" rx=\"5\" fill=\"var(--soft)\" stroke=\"var(--c)\" stroke-width=\"1.5\"/><text x=\"288\" y=\"93\" text-anchor=\"middle\" fill=\"var(--ink)\" font-size=\"11\" font-weight=\"600\">Row 42: [ 0.78, 0.31, -0.19 ]</text><rect x=\"204\" y=\"108\" width=\"168\" height=\"22\" rx=\"4\" fill=\"none\" stroke=\"var(--line)\" stroke-width=\"1\"/><text x=\"288\" y=\"123\" text-anchor=\"middle\" fill=\"var(--muted)\" font-size=\"10\">Row 43: [-0.65, 0.09, 0.52 ]</text><path d=\"M390 89 L432 89\" stroke=\"var(--c)\" stroke-width=\"2\"/><polygon points=\"432,84 442,89 432,94\" fill=\"var(--c)\"/><rect x=\"448\" y=\"52\" width=\"142\" height=\"70\" rx=\"10\" fill=\"var(--soft)\" stroke=\"var(--c)\" stroke-width=\"1.5\"/><text x=\"519\" y=\"78\" text-anchor=\"middle\" fill=\"var(--ink)\" font-size=\"12\" font-weight=\"600\">Token Vector</text><text x=\"519\" y=\"99\" text-anchor=\"middle\" fill=\"var(--muted)\" font-size=\"11\">[0.78, 0.31, -0.19]</text><text x=\"519\" y=\"114\" text-anchor=\"middle\" fill=\"var(--muted)\" font-size=\"9\">(toy 3-D example)</text></svg>",
+        "caption": "An embedding lookup uses the token ID as a row number to fetch a learned vector of floating-point coordinates.",
+        "alt": "Diagram showing Token ID 42 pointing to Row 42 inside an Embedding Matrix table, which outputs the highlighted Token Vector [0.78, 0.31, -0.19]."
+      },
+      "takeaway": "The embedding table converts an arbitrary ID into a learned point in meaning space.",
+      "deeper": {
+        "summary": "Go deeper: how wide are real embedding vectors?",
+        "body": [
+          "Real vectors are much wider than 3 numbers. `bert-base-uncased` uses 768 numbers per token.",
+          "Large decoder models often use several thousand numbers per token (exact internal hidden sizes for proprietary GPT-4 models are unverified publicly)."
+        ]
+      }
+    },
+    {
+      "type": "check",
+      "prompt": "Token `cat` has ID `42` and token `dog` has ID `9105`. Does that mean the model thinks cats and dogs are unrelated?",
+      "options": [
+        "Yes, because distant ID numbers mean distant meanings",
+        "No, because similarity lives in their embedding vectors, while IDs are only row numbers",
+        "Yes, unless both words share the same subword prefix"
+      ],
+      "answer": 1,
+      "explain": "Token IDs are arbitrary table indices. Row 42 and Row 9105 can still hold very similar coordinate vectors in the embedding matrix."
+    },
+    {
+      "type": "concept",
+      "nav": "Static vs contextual",
+      "eyebrow": "Concept 5 · Word2Vec, FastText, and transformers",
+      "title": "Static word vectors vs contextual transformer embeddings",
+      "hue": "rose",
+      "analogy": "Like the difference between a fixed printed spec sheet and a live spec sheet that updates once the builder sees neighboring bricks.",
+      "body": [
+        "Earlier NLP (Natural Language Processing) methods like Word2Vec (2013) learn one static vector per whole word using tasks like Skip-gram or CBOW (Continuous Bag of Words). FastText (2016) improves on this by building each word vector from the vectors of its character n-grams (overlapping letter chunks) so it can still embed rare or misspelled words.",
+        "Transformers like BERT and GPT-4 go further. They start with a static token embedding lookup, then pass the whole sequence through self-attention layers so each token's vector shifts to match its exact context."
+      ],
+      "diagram": {
+        "mermaid": "flowchart TD\n  subgraph Static[\"Static (Word2Vec / FastText)\"]\n    W1[\"river bank\"] --> V1[\"Same vector for bank\"]\n    W2[\"bank account\"] --> V1\n  end\n  subgraph Contextual[\"Contextual (BERT / GPT-4)\"]\n    C1[\"river bank\"] --> T1[\"Transformer attention\"] --> V2[\"Vector near shore, water\"]\n    C2[\"bank account\"] --> T2[\"Transformer attention\"] --> V3[\"Vector near money, loan\"]\n  end",
+        "caption": "Static methods assign one permanent vector to `bank`, while transformers produce a distinct vector for each meaning in context.",
+        "alt": "Comparison flowchart showing Static embeddings mapping both river bank and bank account to the same vector for bank, whereas Contextual transformers map river bank near shore and water, and bank account near money and loan."
+      },
+      "takeaway": "Word2Vec and FastText give each word one fixed vector; transformers update every token's vector using its neighbors."
+    },
+    {
+      "type": "buildup",
+      "nav": "Build it up",
+      "eyebrow": "Putting the pieces together",
+      "title": "Watch text become model math in 5 steps",
+      "steps": [
+        {
+          "title": "Raw text enters the pipeline",
+          "adds": "Input string",
+          "hue": "teal",
+          "body": "You type a prompt such as `Unbelievable coffee!`. At this stage it is plain Unicode text with no numerical structure for a neural network."
+        },
+        {
+          "title": "The tokenizer slices text into subword tokens",
+          "adds": "Tokenization",
+          "hue": "amber",
+          "body": "Using learned merge rules (like BPE or WordPiece), the tokenizer splits the text into known pieces, keeping common words whole and breaking rarer words into reusable parts."
+        },
+        {
+          "title": "The vocabulary assigns each token an integer ID",
+          "adds": "ID lookup",
+          "hue": "violet",
+          "body": "Each token string is replaced by its fixed bin number from the tokenizer's vocabulary table, turning the sentence into a short list of integers."
+        },
+        {
+          "title": "The embedding matrix swaps IDs for vectors",
+          "adds": "Initial embeddings",
+          "hue": "sage",
+          "body": "The model uses each integer ID to fetch one row from its embedding table (and adds position information so word order is preserved)."
+        },
+        {
+          "title": "Transformer layers blend neighboring vectors",
+          "adds": "Contextual meaning",
+          "hue": "rose",
+          "body": "Self-attention layers let every token vector read every other token vector in the prompt. By the final layer, each vector reflects the full sentence meaning and can predict the next token.",
+          "diagram": {
+            "mermaid": "flowchart LR\n  E1[\"Initial token vectors\"] --> A1[\"Self-attention layers\"]\n  A1 --> E2[\"Context-aware vectors\"]\n  E2 --> O1[\"Next-token probabilities\"]",
+            "caption": "Step 5 turns isolated lookup vectors into context-aware representations ready for prediction.",
+            "alt": "Flowchart from Initial token vectors to Self-attention layers to Context-aware vectors to Next-token probabilities."
+          }
+        }
+      ],
+      "summary": "Text splits into tokens, tokens map to IDs, IDs fetch embedding vectors, and transformer layers turn those vectors into context-aware predictions."
+    },
+    {
+      "type": "example",
+      "nav": "Worked example",
+      "eyebrow": "Trace a real sentence",
+      "title": "Tokenizing and embedding a sentence step by step",
+      "input": {
+        "label": "Input sentence",
+        "value": "Tokenizers love unbreakable coffee!",
+        "code": true
+      },
+      "steps": [
+        {
+          "label": "1. Slice into GPT-4 BPE tokens (cl100k_base)",
+          "hue": "amber",
+          "detail": "GPT-4's byte-level BPE keeps common words whole, attaches the leading space to the word after it, and splits rarer words into subwords. These are the real splits from `tiktoken`.",
+          "tokens": [
+            {
+              "text": "Token",
+              "label": "subword",
+              "hue": "teal"
+            },
+            {
+              "text": "izers",
+              "label": "suffix",
+              "hue": "teal"
+            },
+            {
+              "text": " love",
+              "label": "space+word",
+              "hue": "teal"
+            },
+            {
+              "text": " un",
+              "label": "space+prefix",
+              "hue": "teal"
+            },
+            {
+              "text": "break",
+              "label": "root",
+              "hue": "teal"
+            },
+            {
+              "text": "able",
+              "label": "suffix",
+              "hue": "teal"
+            },
+            {
+              "text": " coffee",
+              "label": "space+word",
+              "hue": "teal"
+            },
+            {
+              "text": "!",
+              "label": "punct",
+              "hue": "teal"
+            }
+          ]
+        },
+        {
+          "label": "2. Map each token to its integer ID (real cl100k_base IDs)",
+          "hue": "violet",
+          "detail": "The vocabulary swaps each piece for its bin number. These are the actual IDs `tiktoken` returns for this sentence.",
+          "code": "[\"Token\", \"izers\", \" love\", \" un\", \"break\", \"able\", \" coffee\", \"!\"]\n-> [3404, 12509, 3021, 653, 9137, 481, 11033, 0]"
+        },
+        {
+          "label": "Compare: the same sentence through BERT WordPiece",
+          "hue": "amber",
+          "detail": "`bert-base-uncased` lowercases the text, marks continuation pieces with `##`, and wraps the sequence in `[CLS]` and `[SEP]`. Same sentence, 11 tokens instead of 8, with different IDs (vocabulary of 30,522).",
+          "tokens": [
+            {
+              "text": "[CLS]",
+              "label": "101",
+              "hue": "amber"
+            },
+            {
+              "text": "token",
+              "label": "19204",
+              "hue": "amber"
+            },
+            {
+              "text": "##izer",
+              "label": "17629",
+              "hue": "amber"
+            },
+            {
+              "text": "##s",
+              "label": "2015",
+              "hue": "amber"
+            },
+            {
+              "text": "love",
+              "label": "2293",
+              "hue": "amber"
+            },
+            {
+              "text": "un",
+              "label": "4895",
+              "hue": "amber"
+            },
+            {
+              "text": "##break",
+              "label": "23890",
+              "hue": "amber"
+            },
+            {
+              "text": "##able",
+              "label": "3085",
+              "hue": "amber"
+            },
+            {
+              "text": "coffee",
+              "label": "4157",
+              "hue": "amber"
+            },
+            {
+              "text": "!",
+              "label": "999",
+              "hue": "amber"
+            },
+            {
+              "text": "[SEP]",
+              "label": "102",
+              "hue": "amber"
+            }
+          ]
+        },
+        {
+          "label": "3. Fetch embedding vectors (simplified 3-D toy vectors)",
+          "hue": "sage",
+          "detail": "Each ID pulls one row from the embedding matrix. Real models use hundreds or thousands of values per row instead of 3.",
+          "code": "ID 3404  (\"Token\")   -> [ 0.41, -0.18,  0.72]\nID 11033 (\" coffee\") -> [-0.63,  0.84,  0.15]\nID 0     (\"!\")       -> [ 0.05,  0.11, -0.92]"
+        }
+      ],
+      "output": {
+        "label": "Ready for the transformer",
+        "value": "An 8-by-D matrix of numbers (8 tokens, each represented by a D-dimensional vector) enters the model's first attention layer."
+      }
+    },
+    {
+      "type": "compare",
+      "nav": "Compare",
+      "eyebrow": "Side by side",
+      "title": "BERT vs GPT-4 vs Word2Vec vs FastText",
+      "intro": "Tokenizers and embedding systems evolved together. Here is how four landmark approaches handle text and meaning.",
+      "columns": [
+        {
+          "label": "BERT (WordPiece)",
+          "hue": "amber"
+        },
+        {
+          "label": "GPT-4 (BPE, cl100k_base)",
+          "hue": "teal"
+        },
+        {
+          "label": "Word2Vec",
+          "hue": "rose"
+        },
+        {
+          "label": "FastText",
+          "hue": "sage"
+        }
+      ],
+      "rows": [
+        {
+          "label": "Text unit",
+          "cells": [
+            "Subwords (`##` marks continuations)",
+            "Byte-level subwords (leading spaces attached)",
+            "Whole words only",
+            "Whole words built from character n-grams"
+          ]
+        },
+        {
+          "label": "Vocabulary design",
+          "cells": [
+            "Likelihood-based merges (30,522 tokens in `bert-base-uncased`)",
+            "Frequency-based byte-pair merges (100,277 tokens in `cl100k_base`)",
+            "Fixed corpus word list",
+            "Word list plus overlapping character n-grams"
+          ]
+        },
+        {
+          "label": "Handles unseen words?",
+          "cells": [
+            "Yes, splits into known subwords (a word it cannot build from its pieces becomes `[UNK]`)",
+            "Yes, falls back to raw UTF-8 bytes with zero unknown tokens",
+            "No, unseen words are dropped or mapped to one unknown vector",
+            "Yes, sums vectors of matching character n-grams"
+          ]
+        },
+        {
+          "label": "Embedding type",
+          "cells": [
+            "Contextual (shifts via bidirectional transformer layers)",
+            "Contextual (shifts via causal transformer layers)",
+            "Static (one fixed vector per word)",
+            "Static (one fixed vector per word or typo)"
+          ]
+        },
+        {
+          "label": "Common use today",
+          "cells": [
+            "Search, classification, and semantic similarity",
+            "General-purpose chat, coding, and text generation",
+            "Foundational concept and lightweight baselines",
+            "Fast text classification and noisy or misspelled text"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "confusions",
+      "nav": "Confusions",
+      "eyebrow": "Common confusions",
+      "title": "Four myths that trip learners up",
+      "items": [
+        {
+          "myth": "One token equals one word.",
+          "reality": "A common word like `apple` is often 1 token, while a long or technical word like `tokenization` can split into 2 or 3 tokens. Spaces, punctuation, and emojis also consume tokens."
+        },
+        {
+          "myth": "Word2Vec embeddings work the same way as transformer embeddings.",
+          "reality": "Word2Vec assigns one static vector per word regardless of context. Transformers like BERT and GPT-4 update every token's vector using surrounding words, separating `river bank` from `bank account`."
+        },
+        {
+          "myth": "Tokens with nearby ID numbers have similar meanings.",
+          "reality": "Token IDs are arbitrary table indices assigned when building the vocabulary. Semantic similarity lives exclusively inside the learned embedding vectors."
+        },
+        {
+          "myth": "FastText uses BPE or WordPiece tokenization.",
+          "reality": "FastText breaks each word into overlapping character n-grams (for `cat` with n=3: `<ca`, `cat`, `at>`, plus the whole word `<cat>`) and combines their vectors into one word vector. BPE and WordPiece split text into non-overlapping subword tokens before a neural network sees it."
+        }
+      ]
+    },
+    {
+      "type": "glossary",
+      "nav": "Glossary",
+      "eyebrow": "Key terms",
+      "title": "Eight terms to keep handy",
+      "terms": [
+        {
+          "term": "Token",
+          "definition": "A reusable chunk of text (a whole word, subword, space, or byte) processed as one unit by an LLM.",
+          "hue": "teal"
+        },
+        {
+          "term": "Tokenizer",
+          "definition": "The component that splits raw text into tokens and converts them to and from integer token IDs.",
+          "hue": "amber"
+        },
+        {
+          "term": "BPE",
+          "definition": "Byte Pair Encoding. A subword algorithm that iteratively merges the most frequent adjacent character or byte pairs.",
+          "hue": "amber"
+        },
+        {
+          "term": "WordPiece",
+          "definition": "A subword tokenizer used in BERT that merges pairs maximizing training-data likelihood and prefixes continuations with `##`.",
+          "hue": "amber"
+        },
+        {
+          "term": "Token ID",
+          "definition": "The integer row index assigned to a specific token in a tokenizer's vocabulary.",
+          "hue": "violet"
+        },
+        {
+          "term": "Token embedding",
+          "definition": "A dense vector of decimal numbers representing a token's learned position in meaning space.",
+          "hue": "sage"
+        },
+        {
+          "term": "Word2Vec",
+          "definition": "A classic method that learns one static embedding vector per whole word from nearby word co-occurrence.",
+          "hue": "rose"
+        },
+        {
+          "term": "FastText",
+          "definition": "An extension of Word2Vec that builds static word vectors from character n-grams so unseen or misspelled words still get vectors.",
+          "hue": "rose"
+        }
+      ]
+    },
+    {
+      "type": "quiz",
+      "nav": "Final quiz",
+      "eyebrow": "Test yourself",
+      "title": "Five quick scenarios",
+      "questions": [
+        {
+          "prompt": "A user types a brand-new product name, `HyperblasterX`, into a GPT-4 prompt. Why can the model still process it smoothly?",
+          "options": [
+            "GPT-4 adds the new word to its permanent vocabulary on the fly",
+            "Its byte-level BPE tokenizer splits the word into known subwords or bytes",
+            "GPT-4 ignores unknown words and skips straight to the next sentence"
+          ],
+          "answer": 1,
+          "explain": "A trained tokenizer's vocabulary stays fixed, yet byte-level BPE decomposes any unfamiliar word into smaller known subword pieces or raw UTF-8 bytes."
+        },
+        {
+          "prompt": "You need a lightweight, non-transformer embedding model for messy social media text full of typos like `amazzzing`. Between Word2Vec and FastText, which fits better?",
+          "options": [
+            "Word2Vec, because it maps every typo to a unique whole-word vector",
+            "Neither, because both require a WordPiece tokenizer first",
+            "FastText, because it builds vectors from overlapping character n-grams"
+          ],
+          "answer": 2,
+          "explain": "Word2Vec cannot represent unseen spellings, while FastText sums character n-gram vectors shared with `amazing` to produce a useful vector."
+        },
+        {
+          "prompt": "In the sentences `She saw a crane by the pond` and `The crane lifted a steel beam`, how do BERT's final token embeddings for `crane` compare?",
+          "options": [
+            "They are two different vectors shaped by each sentence's context",
+            "They are identical because `crane` has only one token ID",
+            "BERT drops `crane` because it has two dictionary meanings"
+          ],
+          "answer": 0,
+          "explain": "Both occurrences start with the same token ID and initial lookup row, yet BERT's self-attention layers shift each vector to reflect either a bird or a machine."
+        },
+        {
+          "prompt": "You inspect a tokenizer's vocabulary and notice `apple` is ID `18042` and `orange` is ID `18043`. What can you conclude?",
+          "options": [
+            "The model has already learned that apples and oranges are similar fruits",
+            "Nothing about meaning; IDs are only shelf indices, and similarity lives in the embedding vectors",
+            "Both words must have been merged in the very first BPE step"
+          ],
+          "answer": 1,
+          "explain": "Token IDs are plain lookup numbers. Semantic closeness is learned in the embedding matrix and transformer layers, never in the integer IDs."
+        },
+        {
+          "prompt": "How does WordPiece (in BERT) differ from BPE (in GPT-4) when choosing which symbol pair to merge during vocabulary training?",
+          "options": [
+            "WordPiece only merges whole sentences, while BPE merges single words",
+            "WordPiece assigns random pairs, while BPE sorts alphabetically",
+            "WordPiece picks the merge that best increases training-text likelihood, while BPE picks the most frequent pair"
+          ],
+          "answer": 2,
+          "explain": "Both build subword vocabularies bottom-up, with BPE guided by raw pair frequency and WordPiece guided by language-model likelihood gain."
+        }
+      ]
+    },
+    {
+      "type": "recap",
+      "nav": "Recap",
+      "eyebrow": "Wrap-up",
+      "title": "Four ideas to keep",
+      "points": [
+        "**Tokens are subword bricks.** Algorithms like BPE and WordPiece balance vocabulary size against handling rare words.",
+        "**Token IDs are plain bin numbers.** They index rows in the embedding matrix and carry no built-in meaning.",
+        "**Embeddings map tokens into vector space.** Similar concepts cluster together as lists of decimal numbers.",
+        "**Context separates transformers from static vectors.** Word2Vec and FastText assign fixed vectors, while BERT and GPT-4 adapt each vector to its sentence."
+      ],
+      "nextSteps": [
+        "Paste a tricky sentence, some code, and a non-English phrase into OpenAI's tokenizer playground or Hugging Face's tokenizer tools to see subword splits live.",
+        "Compare token counts for the same paragraph across BERT (`bert-base-uncased`) and GPT-4 (`cl100k_base`) to see how vocabulary design changes sequence length."
+      ]
+    },
+    {
+      "type": "prose",
+      "eyebrow": "Practical impact",
+      "title": "Why token count shapes real-world LLM use",
+      "body": [
+        "Because transformers process one vector per token, API pricing, latency, and context-window limits are all measured in tokens rather than words.",
+        "Text that splits into more pieces (such as rare technical jargon, dense code, or languages underrepresented in a tokenizer's training data) uses more tokens per sentence and costs more compute."
+      ],
+      "callout": {
+        "tone": "good",
+        "text": "When an LLM struggles with spelling or counting letters inside a word, the reason often starts at the tokenizer: the model sees fused subword chunks instead of individual characters."
+      }
+    }
+  ],
+  "sources": [
+    {
+      "title": "Hugging Face Transformers: Summary of the tokenizers",
+      "url": "https://huggingface.co/docs/transformers/tokenizer_summary",
+      "asOf": "2026-11"
+    },
+    {
+      "title": "OpenAI tiktoken (BPE tokenizer including cl100k_base)",
+      "url": "https://github.com/openai/tiktoken",
+      "asOf": "2026-11"
+    },
+    {
+      "title": "Sennrich et al.: Neural Machine Translation of Rare Words with Subword Units (BPE)",
+      "url": "https://arxiv.org/abs/1508.07909",
+      "asOf": "2015-08"
+    },
+    {
+      "title": "Devlin et al.: BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "url": "https://arxiv.org/abs/1810.04805",
+      "asOf": "2018-10"
+    },
+    {
+      "title": "Mikolov et al.: Efficient Estimation of Word Representations in Vector Space (Word2Vec)",
+      "url": "https://arxiv.org/abs/1301.3781",
+      "asOf": "2013-01"
+    },
+    {
+      "title": "Bojanowski et al.: Enriching Word Vectors with Subword Information (FastText)",
+      "url": "https://arxiv.org/abs/1607.04606",
+      "asOf": "2016-07"
+    }
+  ]
+}
